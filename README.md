@@ -2,6 +2,8 @@
 
 > Suivi de main de poker en direct — application web statique, sans build, déployée sur GitHub Pages.
 
+**🔗 Application en ligne : [bdtgif.github.io/PokerNotes](https://bdtgif.github.io/PokerNotes/)**
+
 PokerNotes est un *tracker* léger qui permet, autour d'une vraie table, de
 saisir une main au fil de l'eau : positions, blinds, antes, mises, relances,
 all-ins, side-pots, et showdown. Tout fonctionne dans le navigateur, sans
@@ -11,7 +13,7 @@ serveur ni dépendance externe.
 
 Déploiement automatique sur GitHub Pages à chaque push sur `main` :
 
-- Production : https://bdtgif.github.io/PokerNotes/
+- Production : [https://bdtgif.github.io/PokerNotes/](https://bdtgif.github.io/PokerNotes/)
 
 ## Fonctionnalités
 
