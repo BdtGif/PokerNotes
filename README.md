@@ -77,4 +77,4 @@ automatiquement le contenu du dépôt sur GitHub Pages à chaque `push` sur
 
 ## Licence
 
-[MIT](LICENSE) © C-A de Salaberry
+[MIT](LICENSE) © Benjamin de Thimé
