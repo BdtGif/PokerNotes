@@ -15,6 +15,18 @@ import { rebuildPlayers, postBlindsForPreview } from './player.js';
 // Imports circulaires (safe en ES6 — utilisés uniquement dans les corps de fonctions)
 import { render, promptCardSelection, promptShowdown } from './ui.js';
 
+function _recordStreetAction(street, entry) {
+  if (state.streets && state.streets[street]) state.streets[street].actions.push(entry);
+}
+
+function _clearStreetFrom(fromStreet) {
+  if (!state.streets) return;
+  const order = ['preflop', 'flop', 'turn', 'river'];
+  for (let i = order.indexOf(fromStreet); i < order.length; i++) {
+    state.streets[order[i]] = { actions: [], potEnd: 0 };
+  }
+}
+
 /* ================================================================
    MISES
    ================================================================ */
@@ -115,6 +127,12 @@ export function startPreflop() {
   const queue = buildActionQueue('preflop');
   state.betRound = { street: 'preflop', queue, qIndex: 0, lastRaiserIdx: null, lastRaiseSize: state.bb, history: [] };
   state.step = 'preflop';
+  state.streets = {
+    preflop: { actions: [], potEnd: 0 },
+    flop:    { actions: [], potEnd: 0 },
+    turn:    { actions: [], potEnd: 0 },
+    river:   { actions: [], potEnd: 0 }
+  };
   render();
 }
 
@@ -138,6 +156,7 @@ export function doAction(player, action, totalBet = null) {
   const br = state.betRound;
   if (!br) return;
 
+  const _histLen = br.history.length;
   const snapshot = JSON.parse(JSON.stringify({
     players: state.players, pot: state.pot, currentBet: state.currentBet,
     qIndex: br.qIndex, queue: br.queue,
@@ -223,6 +242,13 @@ export function doAction(player, action, totalBet = null) {
     br.history.push({ idx: player.idx, action: 'allin', amount: totalBet, snapshot });
   }
 
+  if (br.history.length > _histLen) {
+    const _h = br.history[br.history.length - 1];
+    const _entry = { pos: player.pos, action: _h.action };
+    if (_h.amount !== undefined) _entry.amount = _h.amount;
+    _recordStreetAction(br.street, _entry);
+  }
+
   applySidePotAdjustment();
   render();
 
@@ -284,6 +310,7 @@ export function promptNext() {
 /** Clôture la street en cours et passe à la suivante. */
 export function finishStreet() {
   const br = state.betRound;
+  if (state.streets && br) state.streets[br.street].potEnd = state.pot;
   state.players.forEach(p => { p.currentBet = 0; });
   state.currentBet = 0;
 
@@ -315,6 +342,7 @@ export function finishStreet() {
 export function skipToShowdown() {
   const br = state.betRound;
   if (!br) return;
+  if (state.streets && br) state.streets[br.street].potEnd = state.pot;
   state.players.forEach(p => { p.currentBet = 0; });
   state.currentBet = 0;
   const street = br.street;
@@ -340,6 +368,7 @@ export function goBackOneAction() {
       state.players.forEach(p => { p.currentBet = 0; p.totalBet = 0; p.folded = false; p.allin = false; });
       state.pot = 0; state.currentBet = 0;
       state.betRound = null; state.step = 'setup';
+      state.streets = null;
       postBlindsForPreview(); render(); return;
     } else {
       const map = { 'flop': 'flop-cards', 'turn': 'turn-cards', 'river': 'river-cards' };
@@ -347,12 +376,13 @@ export function goBackOneAction() {
       if (br.street === 'turn')  state.board = state.board.slice(0, 3);
       if (br.street === 'river') state.board = state.board.slice(0, 4);
       state.players.forEach(p => { p.currentBet = 0; });
-      state.currentBet = 0; state.betRound = null;
+      state.currentBet = 0; _clearStreetFrom(br.street); state.betRound = null;
       state.step = map[br.street]; render();
       promptCardSelection(br.street); return;
     }
   }
 
+  if (state.streets && state.streets[br.street]) state.streets[br.street].actions.pop();
   const last = br.history.pop();
   state.players = last.snapshot.players;
   state.pot = last.snapshot.pot;
@@ -375,6 +405,7 @@ export function handleGlobalBack() {
     state.currentBet = 0; state.winners = [];
     state.step = 'river-bet';
     state.betRound = { street: 'river', queue: buildActionQueue('river'), qIndex: 0, lastRaiserIdx: null, lastRaiseSize: state.bb, history: [] };
+    _clearStreetFrom('river');
     render(); return;
   }
 
@@ -384,6 +415,7 @@ export function handleGlobalBack() {
       state.players.forEach(p => { p.currentBet = 0; });
       state.currentBet = 0; state.step = 'preflop';
       state.betRound = { street: 'preflop', queue: buildActionQueue('preflop'), qIndex: 0, lastRaiserIdx: null, lastRaiseSize: state.bb, history: [] };
+      _clearStreetFrom('preflop');
       const bb = state.players.find(p => p.pos === 'BB' && p.inHand);
       const buIdx = state.players.findIndex(p => p.pos === 'BU' && p.inHand);
       if (state.numPlayers === 2 && buIdx >= 0) state.players[buIdx].currentBet = state.sb;
@@ -397,6 +429,7 @@ export function handleGlobalBack() {
     state.players.forEach(p => { p.currentBet = 0; });
     state.currentBet = 0;
     state.betRound = { street, queue: buildActionQueue(street), qIndex: 0, lastRaiserIdx: null, lastRaiseSize: state.bb, history: [] };
+    _clearStreetFrom(street);
     render();
   }
 }

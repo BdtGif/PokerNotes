@@ -41,6 +41,43 @@
 .history-card-group { display: flex; gap: 3px; }
 .history-board-group { border-left: 1px solid var(--rail-light); padding-left: 10px; }
 
+/* ---------- STREETS PAR MAIN ---------- */
+.hs-streets {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 6px;
+  border-left: 2px solid var(--rail-light);
+  padding-left: 8px;
+}
+.hs-street {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  line-height: 1.4;
+  font-size: 0.7rem;
+}
+.hs-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--gold);
+  min-width: 26px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.hs-cards {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.hs-actions {
+  color: rgba(255, 255, 255, 0.65);
+  word-break: break-word;
+}
+.hs-fold { opacity: 0.45; }
+
 /* ---------- TOAST DE SAUVEGARDE ---------- */
 .toast {
   position: fixed; bottom: 80px; left: 50%;

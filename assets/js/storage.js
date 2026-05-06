@@ -58,6 +58,33 @@ export function buildHandRecord() {
     })),
     board: [...state.board],
     pot: state.finalPotForDisplay || state.pot,
-    winners: state.winners.map(w => ({ ...w }))
+    winners: state.winners.map(w => ({ ...w })),
+    streets: _buildStreetsSnapshot()
+  };
+}
+
+function _buildStreetsSnapshot() {
+  if (!state.streets) return null;
+  const b = state.board;
+  return {
+    preflop: {
+      actions: state.streets.preflop.actions.slice(),
+      potEnd: state.streets.preflop.potEnd
+    },
+    flop: {
+      cards: b.slice(0, 3),
+      actions: state.streets.flop.actions.slice(),
+      potEnd: state.streets.flop.potEnd
+    },
+    turn: {
+      cards: b.length >= 4 ? [b[3]] : [],
+      actions: state.streets.turn.actions.slice(),
+      potEnd: state.streets.turn.potEnd
+    },
+    river: {
+      cards: b.length >= 5 ? [b[4]] : [],
+      actions: state.streets.river.actions.slice(),
+      potEnd: state.streets.river.potEnd
+    }
   };
 }

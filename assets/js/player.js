@@ -29,6 +29,7 @@ export function rebuildPlayers() {
   state.winners = [];
   state.finalPotForDisplay = 0;
   state.step = 'setup';
+  state.streets = null;
   postBlindsForPreview();
 }
 

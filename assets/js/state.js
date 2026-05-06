@@ -47,5 +47,6 @@ export const state = {
   allinShownFor: null,
   raiseError: null,
   winners: [],
-  finalPotForDisplay: 0
+  finalPotForDisplay: 0,
+  streets: null
 };

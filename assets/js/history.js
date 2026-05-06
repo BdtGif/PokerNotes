@@ -21,6 +21,42 @@ export function histCardHtml(card) {
   return `<div class="history-card ${l.cssClass}">${l.rank}</div>`;
 }
 
+function _fmtAction(a) {
+  switch (a.action) {
+    case 'fold':  return `<span class="hs-fold">${a.pos} fold</span>`;
+    case 'check': return `${a.pos} chk`;
+    case 'call':  return `${a.pos} call ${fmtChips(a.amount)}`;
+    case 'raise': return `${a.pos} raise ${fmtChips(a.amount)}`;
+    case 'allin': return `${a.pos} shove ${fmtChips(a.amount)}`;
+    default:      return `${a.pos} ${a.action}`;
+  }
+}
+
+function _handStreetsHtml(hand) {
+  if (!hand.streets) return '';
+  const defs = [
+    { key: 'preflop', label: 'PF' },
+    { key: 'flop',    label: 'Flop' },
+    { key: 'turn',    label: 'Turn' },
+    { key: 'river',   label: 'River' }
+  ];
+  const parts = [];
+  for (const { key, label } of defs) {
+    const st = hand.streets[key];
+    if (!st) continue;
+    const hasActions = st.actions && st.actions.length > 0;
+    const hasCards   = st.cards && st.cards.length > 0;
+    if (!hasActions && !hasCards) continue;
+    let row = `<div class="hs-street">`;
+    row += `<span class="hs-label">${label}</span>`;
+    if (hasCards) row += `<span class="hs-cards">${st.cards.map(histCardHtml).join('')}</span>`;
+    if (hasActions) row += `<span class="hs-actions">${st.actions.map(_fmtAction).join(' · ')}</span>`;
+    row += `</div>`;
+    parts.push(row);
+  }
+  return parts.length ? `<div class="hs-streets">${parts.join('')}</div>` : '';
+}
+
 export function showHistoryModal() {
   const hands = loadAllHands().slice().reverse();
   const count = hands.length;
@@ -54,6 +90,7 @@ export function showHistoryModal() {
             <button class="history-delete-btn" data-id="${hand.id}">✕</button>
           </div>
           <div class="history-summary">${summary}</div>
+          ${_handStreetsHtml(hand)}
           ${cardsRow}
         </div>`;
       }).join('');
