@@ -1,7 +1,7 @@
 /* main.js — Point d'entrée : bindings DOM et initialisation */
 
 import { state } from './state.js';
-import { $, showToast } from './utils.js';
+import { $ } from './utils.js';
 import { rebuildPlayers, postBlindsForPreview } from './player.js';
 import { startPreflop, goBackOneAction, handleGlobalBack } from './hand.js';
 import { render, showModal, closeModal, bindEnterToValidate } from './ui.js';

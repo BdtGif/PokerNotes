@@ -5,8 +5,7 @@
  */
 
 import { state, SUITS, RANKS } from './state.js';
-import { $, fmtChips, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
-import { evaluateHand } from './evaluator.js';
+import { $, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
 import { postBlindsForPreview } from './player.js';
 // Imports circulaires — safe à runtime (voir note ci-dessus)
 import { doAction, goBackOneAction, buildActionQueue, finishHand } from './hand.js';
@@ -56,7 +55,7 @@ export function renderSeats() {
     ? state.betRound.queue[state.betRound.qIndex] : null;
 
   state.players.forEach((p, i) => {
-    const { x, y, angle } = positions[i];
+    const { x, y } = positions[i];
     const seat = document.createElement('div');
     seat.className = 'seat';
     seat.style.left = x + 'px'; seat.style.top = y + 'px';
@@ -249,7 +248,6 @@ export function renderActionPanel() {
   const pos = positions[idx];
   const tableArea = $('table-area');
   const rect = tableArea.getBoundingClientRect();
-  const cx = rect.width / 2, cy = rect.height / 2;
   const panel = document.createElement('div');
   panel.className = 'action-panel';
 

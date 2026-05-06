@@ -8,7 +8,7 @@
  */
 
 import { state } from './state.js';
-import { getActivePlayers, fmtAmount, showToast } from './utils.js';
+import { getActivePlayers, showToast } from './utils.js';
 import { saveHand, buildHandRecord } from './storage.js';
 import { evaluateHand } from './evaluator.js';
 import { rebuildPlayers, postBlindsForPreview } from './player.js';
