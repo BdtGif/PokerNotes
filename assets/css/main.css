@@ -1,0 +1,38 @@
+/* main.css — Variables CSS globales, reset et base */
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  /* Couleurs du tapis */
+  --felt-dark: #0d3d2a;
+  --felt-mid: #145a3d;
+  --felt-light: #1d7a52;
+  /* Bois de la table */
+  --rail: #3a2418;
+  --rail-light: #5c3a26;
+  /* Palette principale */
+  --gold: #d4a04a;
+  --cream: #f4ead5;
+  --ink: #1a1410;
+  /* Couleurs sémantiques */
+  --red: #c0392b;
+  --green: #27ae60;
+  --yellow: #f1c40f;
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --grey: #6b7280;
+}
+
+html, body {
+  height: 100%; width: 100%; overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: #0a0a0a; color: var(--cream);
+  user-select: none; -webkit-user-select: none;
+}
+
+#app {
+  width: 100vw; height: 100vh; height: 100dvh;
+  display: flex; flex-direction: column;
+  background: radial-gradient(ellipse at top, #1a1a1a 0%, #050505 100%);
+  position: relative;
+}

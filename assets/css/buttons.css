@@ -1,0 +1,84 @@
+/* buttons.css — Tous les styles de boutons */
+
+/* ---------- BOUTONS GÉNÉRIQUES ---------- */
+.btn {
+  padding: 12px 20px; border-radius: 8px; border: none;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  transition: all 0.15s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary {
+  background: var(--blue); color: white;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.4);
+}
+.btn-primary:active { background: var(--blue-dark); }
+.btn-primary:disabled { background: var(--grey); opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+.btn-secondary { background: #2a1f15; color: var(--cream); border: 1px solid var(--rail-light); }
+.btn-back-bottom { background: #2a1f15; color: var(--cream); border: 1px solid var(--rail-light); }
+.btn-back-bottom:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- TOGGLE PILL (ante / BB-ante) ---------- */
+.toggle-pill {
+  background: #1a1410; border: 1px solid #3a2418;
+  color: var(--cream); padding: 5px 8px; border-radius: 6px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; cursor: pointer;
+}
+.toggle-pill.active { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+
+/* ---------- BOUTONS +/- JOUEURS ---------- */
+.pc-btn {
+  width: 24px; height: 24px; border-radius: 4px; border: none;
+  background: var(--rail-light); color: var(--cream);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.pc-btn:active { background: var(--gold); color: var(--ink); }
+
+/* ---------- BOUTONS D'ACTION (panneau inline) ---------- */
+.action-btn-inline {
+  padding: 9px 4px; border-radius: 6px; border: 1.5px solid transparent;
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.03em; transition: all 0.15s;
+}
+.action-fold  { background: #4b1c1c; color: #fca5a5; border-color: #7f1d1d; }
+.action-call  { background: #1e3a8a; color: #bfdbfe; border-color: #1e40af; }
+.action-check { background: #064e3b; color: #a7f3d0; border-color: #065f46; }
+.action-raise { background: #713f12; color: #fde68a; border-color: #92400e; }
+.action-allin { background: #7f1d1d; color: #fecaca; border-color: #b91c1c; }
+.action-back-inline { background: #2a1f15; color: var(--cream); border: 1px solid var(--rail-light); }
+.action-btn-inline:active { transform: scale(0.95); }
+
+/* ---------- BOUTON CONFIRMER RAISE ---------- */
+.raise-confirm {
+  padding: 7px; border-radius: 4px; border: none;
+  background: var(--blue); color: white; font-weight: 800;
+  cursor: pointer; font-size: 12px; flex-shrink: 0;
+}
+.raise-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- PRESETS % POT ---------- */
+.pot-preset-btn {
+  background: #1a1410; color: var(--cream);
+  border: 1px solid var(--rail-light); border-radius: 3px;
+  padding: 4px 0; font-size: 9px; font-weight: 700;
+  cursor: pointer; min-width: 0;
+}
+.pot-preset-btn:active { background: var(--gold); color: var(--ink); }
+
+/* ---------- BOUTONS FLOTTANTS ---------- */
+.reset-btn {
+  position: absolute; top: 6px; right: 6px;
+  background: #4b1c1c; color: var(--cream);
+  border: 1px solid #7f1d1d; border-radius: 6px;
+  padding: 4px 10px; font-size: 10px; font-weight: 700;
+  cursor: pointer; z-index: 200;
+}
+.history-btn {
+  position: absolute; top: 6px; left: 6px;
+  background: #1a2e25; color: var(--gold);
+  border: 1px solid var(--felt-mid); border-radius: 6px;
+  padding: 4px 10px; font-size: 10px; font-weight: 700;
+  cursor: pointer; z-index: 200;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
