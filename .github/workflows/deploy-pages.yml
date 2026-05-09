@@ -2,33 +2,88 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - '**'
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
+# Serialize all deploys: every branch writes to the same gh-pages branch,
+# so concurrent jobs would race on push. cancel-in-progress: false lets
+# each commit eventually deploy instead of being dropped.
 concurrency:
-  group: pages
+  group: gh-pages-deploy
   cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          path: source
+
+      - name: Compute branch info
+        id: branch
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          SAFE="$(printf '%s' "$BRANCH" | sed 's|/|-|g')"
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "safe=$SAFE" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare gh-pages working tree
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir pages
+          cd pages
+          git init -q -b gh-pages
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch --depth=1 origin gh-pages 2>/dev/null; then
+            git reset --hard origin/gh-pages
+          fi
+
+      - name: Sync branch content into gh-pages tree
+        run: |
+          BRANCH="${{ steps.branch.outputs.name }}"
+          SAFE="${{ steps.branch.outputs.safe }}"
+          if [ "$BRANCH" = "main" ]; then
+            # Replace top-level files but keep peer branches intact.
+            find pages -mindepth 1 -maxdepth 1 \
+              ! -name 'branches' \
+              ! -name '.git' \
+              -exec rm -rf {} +
+            rsync -a --exclude='.git' --exclude='.github' source/ pages/
+          else
+            DEST="pages/branches/$SAFE"
+            rm -rf "$DEST"
+            mkdir -p "$DEST"
+            rsync -a --exclude='.git' --exclude='.github' source/ "$DEST"/
+          fi
+          touch pages/.nojekyll
+
+      - name: Commit and push gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd pages
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to deploy."
+            exit 0
+          fi
+          git commit -q -m "Deploy ${{ steps.branch.outputs.name }} @ ${GITHUB_SHA::7}"
+          for delay in 0 2 4 8 16; do
+            [ "$delay" -gt 0 ] && sleep "$delay"
+            if git push origin gh-pages; then
+              exit 0
+            fi
+            git fetch origin gh-pages || true
+            git rebase origin/gh-pages || git rebase --abort || true
+          done
+          echo "Push to gh-pages failed after retries." >&2
+          exit 1

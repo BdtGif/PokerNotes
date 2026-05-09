@@ -1,0 +1,50 @@
+name: Cleanup deleted branch from GitHub Pages
+
+on:
+  delete:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.event.ref_type == 'branch' && github.event.ref != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove branch subfolder from gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ github.event.ref }}"
+          SAFE="$(printf '%s' "$BRANCH" | sed 's|/|-|g')"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir pages
+          cd pages
+          git init -q -b gh-pages
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if ! git fetch --depth=1 origin gh-pages 2>/dev/null; then
+            echo "No gh-pages branch yet; nothing to clean."
+            exit 0
+          fi
+          git reset --hard origin/gh-pages
+          if [ ! -d "branches/$SAFE" ]; then
+            echo "No deployment found for $BRANCH (branches/$SAFE); nothing to do."
+            exit 0
+          fi
+          git rm -rq "branches/$SAFE"
+          git commit -q -m "Cleanup deployment for deleted branch $BRANCH"
+          for delay in 0 2 4 8 16; do
+            [ "$delay" -gt 0 ] && sleep "$delay"
+            if git push origin gh-pages; then
+              exit 0
+            fi
+            git fetch origin gh-pages || true
+            git rebase origin/gh-pages || git rebase --abort || true
+          done
+          echo "Push to gh-pages failed after retries." >&2
+          exit 1

@@ -11,9 +11,11 @@ serveur ni dépendance externe.
 
 ## Démo
 
-Déploiement automatique sur GitHub Pages à chaque push sur `main` :
+Déploiement automatique sur GitHub Pages à chaque push :
 
-- Production : [https://bdtgif.github.io/PokerNotes/](https://bdtgif.github.io/PokerNotes/)
+- Production (`main`) : [https://bdtgif.github.io/PokerNotes/](https://bdtgif.github.io/PokerNotes/)
+- Aperçus de branches : `https://bdtgif.github.io/PokerNotes/branches/<nom-de-branche>/`
+  (les `/` du nom sont remplacés par `-`, p. ex. `feat/foo` → `branches/feat-foo/`).
 
 ## Fonctionnalités
 
@@ -35,7 +37,8 @@ Déploiement automatique sur GitHub Pages à chaque push sur `main` :
 │   ├── css/styles.css      # Styles
 │   └── js/app.js           # Logique applicative (état, rendu, actions)
 ├── .github/workflows/
-│   └── deploy-pages.yml    # Déploiement GitHub Pages
+│   ├── deploy-pages.yml    # Déploiement GitHub Pages (main → /, branches → /branches/<nom>/)
+│   └── cleanup-pages.yml   # Nettoie le sous-dossier d'une branche supprimée
 ├── .editorconfig
 ├── .gitignore
 ├── .nojekyll               # Désactive Jekyll côté Pages
@@ -68,8 +71,22 @@ Puis ouvrez http://localhost:8000.
 ## Déploiement
 
 Le workflow [`deploy-pages.yml`](.github/workflows/deploy-pages.yml) publie
-automatiquement le contenu du dépôt sur GitHub Pages à chaque `push` sur
-`main`. Aucune étape de build n'est nécessaire.
+automatiquement le contenu du dépôt sur GitHub Pages à chaque `push`, sur
+n'importe quelle branche. Aucune étape de build n'est nécessaire.
+
+- `main` est publié à la racine de Pages → `https://bdtgif.github.io/PokerNotes/`.
+- Les autres branches sont publiées dans `branches/<nom>/` →
+  `https://bdtgif.github.io/PokerNotes/branches/<nom>/`. Les `/` du nom sont
+  remplacés par `-`.
+
+Tous les déploiements sont écrits sur la branche `gh-pages`. Le workflow
+[`cleanup-pages.yml`](.github/workflows/cleanup-pages.yml) supprime le
+sous-dossier correspondant lorsqu'une branche est supprimée.
+
+> **Configuration requise dans le dépôt** : *Settings → Pages → Build and
+> deployment → Source = « Deploy from a branch »*, branche `gh-pages`,
+> dossier `/ (root)`. La branche `gh-pages` est créée automatiquement par le
+> premier déploiement.
 
 ## Conventions
 
