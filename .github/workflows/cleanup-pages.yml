@@ -20,7 +20,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="${{ github.event.ref }}"
-          SAFE="$(printf '%s' "$BRANCH" | sed 's|/|-|g')"
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir pages
@@ -32,11 +31,22 @@ jobs:
             exit 0
           fi
           git reset --hard origin/gh-pages
-          if [ ! -d "branches/$SAFE" ]; then
-            echo "No deployment found for $BRANCH (branches/$SAFE); nothing to do."
+          DEPLOY_PATH="branches/$BRANCH"
+          if [ ! -d "$DEPLOY_PATH" ]; then
+            echo "No deployment found for $BRANCH ($DEPLOY_PATH); nothing to do."
             exit 0
           fi
-          git rm -rq "branches/$SAFE"
+          git rm -rq "$DEPLOY_PATH"
+          # Prune now-empty parent directories up to (but not including) "branches".
+          PARENT="$(dirname "$DEPLOY_PATH")"
+          while [ "$PARENT" != "branches" ] && [ "$PARENT" != "." ]; do
+            if [ -d "$PARENT" ] && [ -z "$(ls -A "$PARENT")" ]; then
+              rmdir "$PARENT"
+              PARENT="$(dirname "$PARENT")"
+            else
+              break
+            fi
+          done
           git commit -q -m "Cleanup deployment for deleted branch $BRANCH"
           for delay in 0 2 4 8 16; do
             [ "$delay" -gt 0 ] && sleep "$delay"

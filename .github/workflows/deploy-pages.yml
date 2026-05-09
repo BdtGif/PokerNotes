@@ -29,9 +29,7 @@ jobs:
         id: branch
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
-          SAFE="$(printf '%s' "$BRANCH" | sed 's|/|-|g')"
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "safe=$SAFE" >> "$GITHUB_OUTPUT"
 
       - name: Prepare gh-pages working tree
         env:
@@ -50,7 +48,6 @@ jobs:
       - name: Sync branch content into gh-pages tree
         run: |
           BRANCH="${{ steps.branch.outputs.name }}"
-          SAFE="${{ steps.branch.outputs.safe }}"
           if [ "$BRANCH" = "main" ]; then
             # Replace top-level files but keep peer branches intact.
             find pages -mindepth 1 -maxdepth 1 \
@@ -59,7 +56,7 @@ jobs:
               -exec rm -rf {} +
             rsync -a --exclude='.git' --exclude='.github' source/ pages/
           else
-            DEST="pages/branches/$SAFE"
+            DEST="pages/branches/$BRANCH"
             rm -rf "$DEST"
             mkdir -p "$DEST"
             rsync -a --exclude='.git' --exclude='.github' source/ "$DEST"/

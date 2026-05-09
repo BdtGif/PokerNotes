@@ -15,7 +15,8 @@ Déploiement automatique sur GitHub Pages à chaque push :
 
 - Production (`main`) : [https://bdtgif.github.io/PokerNotes/](https://bdtgif.github.io/PokerNotes/)
 - Aperçus de branches : `https://bdtgif.github.io/PokerNotes/branches/<nom-de-branche>/`
-  (les `/` du nom sont remplacés par `-`, p. ex. `feat/foo` → `branches/feat-foo/`).
+  (le nom est utilisé tel quel comme arborescence, p. ex. `feat/foo` →
+  `branches/feat/foo/`).
 
 ## Fonctionnalités
 
@@ -76,8 +77,9 @@ n'importe quelle branche. Aucune étape de build n'est nécessaire.
 
 - `main` est publié à la racine de Pages → `https://bdtgif.github.io/PokerNotes/`.
 - Les autres branches sont publiées dans `branches/<nom>/` →
-  `https://bdtgif.github.io/PokerNotes/branches/<nom>/`. Les `/` du nom sont
-  remplacés par `-`.
+  `https://bdtgif.github.io/PokerNotes/branches/<nom>/`. Le nom de branche
+  est utilisé tel quel : une branche `feat/foo` se retrouve dans
+  `branches/feat/foo/`.
 
 Tous les déploiements sont écrits sur la branche `gh-pages`. Le workflow
 [`cleanup-pages.yml`](.github/workflows/cleanup-pages.yml) supprime le
