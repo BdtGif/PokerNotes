@@ -29,20 +29,20 @@ function checkoutGhPages(workdir, remoteUrl) {
   return false;
 }
 
-function syncBranchToTree({ workdir, branch, sourceDir }) {
-  if (branch === 'main') {
-    for (const entry of fs.readdirSync(workdir)) {
-      if (entry === 'branches' || entry === '.git') continue;
-      fs.rmSync(path.join(workdir, entry), { recursive: true, force: true });
-    }
-    runStream('rsync', ['-a', '--exclude=.git', '--exclude=.github', `${sourceDir}/`, `${workdir}/`]);
-  } else {
-    const dest = path.join(workdir, 'branches', branch);
-    fs.rmSync(dest, { recursive: true, force: true });
-    fs.mkdirSync(dest, { recursive: true });
-    runStream('rsync', ['-a', '--exclude=.git', '--exclude=.github', `${sourceDir}/`, `${dest}/`]);
+function syncMainToRoot({ workdir, mainSourceDir }) {
+  for (const entry of fs.readdirSync(workdir)) {
+    if (entry === 'branches' || entry === '.git') continue;
+    fs.rmSync(path.join(workdir, entry), { recursive: true, force: true });
   }
+  runStream('rsync', ['-a', '--exclude=.git', '--exclude=.github', `${mainSourceDir}/`, `${workdir}/`]);
   fs.writeFileSync(path.join(workdir, '.nojekyll'), '');
+}
+
+function syncBranchToSubfolder({ workdir, branch, sourceDir }) {
+  const dest = path.join(workdir, 'branches', branch);
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.mkdirSync(dest, { recursive: true });
+  runStream('rsync', ['-a', '--exclude=.git', '--exclude=.github', `${sourceDir}/`, `${dest}/`]);
 }
 
 function removeBranchFromTree({ workdir, branch }) {
@@ -87,7 +87,8 @@ module.exports = {
   configureGitIdentity,
   tokenizedRemoteUrl,
   checkoutGhPages,
-  syncBranchToTree,
+  syncMainToRoot,
+  syncBranchToSubfolder,
   removeBranchFromTree,
   commitAndPush,
 };

@@ -45,8 +45,9 @@ Déploiement automatique sur GitHub Pages à chaque push :
 │   ├── exec.js             # Wrappers child_process
 │   ├── github.js           # Client REST GitHub (deployments, comments)
 │   ├── git-pages.js        # Synchro et push de l'arbre gh-pages
-│   ├── deploy.js           # Orchestrateur du workflow de déploiement
-│   └── cleanup.js          # Orchestrateur du workflow de nettoyage
+│   ├── prepare.js          # Phase 1 : assemble l'arbre gh-pages, crée le deployment
+│   ├── finalize.js         # Phase 2 : marque le deployment success/failure, commente la PR
+│   └── cleanup.js          # Workflow de suppression de branche
 ├── .editorconfig
 ├── .gitignore
 ├── .nojekyll               # Désactive Jekyll côté Pages
@@ -88,26 +89,27 @@ n'importe quelle branche. Aucune étape de build n'est nécessaire.
   est utilisé tel quel : une branche `feat/foo` se retrouve dans
   `branches/feat/foo/`.
 
-Tous les déploiements sont écrits sur la branche `gh-pages`. Le workflow
-[`cleanup-pages.yml`](.github/workflows/cleanup-pages.yml) supprime le
-sous-dossier correspondant lorsqu'une branche est supprimée.
+À chaque push, le workflow :
 
-Pour chaque push, le déploiement crée :
+1. Reconstruit la branche `gh-pages` (contenu de `main` à la racine + branche
+   poussée sous `branches/<nom>/`).
+2. Publie ce contenu via `actions/upload-pages-artifact` +
+   `actions/deploy-pages` dans l'environnement `github-pages`. La source
+   Pages reste donc « GitHub Actions », aucun réglage manuel n'est requis.
+3. Pour les branches autres que `main`, crée un *GitHub Deployment* dans
+   un environnement `preview/<branche>` avec l'URL d'aperçu, visible dans
+   l'onglet *Deployments* et la barre latérale des PR.
+4. Met à jour un commentaire « collant » sur chaque PR ouverte de la
+   branche avec l'URL d'aperçu et le SHA du commit.
 
-- un *GitHub Deployment* avec l'environnement `production` (pour `main`) ou
-  `preview/<branche>` (sinon) et l'URL associée — visible dans l'onglet
-  *Deployments* du dépôt et dans la barre latérale des PR ;
-- un commentaire « collant » sur les PR ouvertes de la branche, mis à jour
-  à chaque push, avec l'URL d'aperçu.
+Le workflow [`cleanup-pages.yml`](.github/workflows/cleanup-pages.yml)
+supprime le sous-dossier correspondant lorsqu'une branche est supprimée
+puis re-déploie l'artefact Pages.
 
 L'essentiel de la logique est en JavaScript dans
-[`scripts/ci/`](scripts/ci/) : les workflows ne font qu'appeler `node
-scripts/ci/deploy.js` ou `node scripts/ci/cleanup.js`.
-
-> **Configuration requise dans le dépôt** : *Settings → Pages → Build and
-> deployment → Source = « Deploy from a branch »*, branche `gh-pages`,
-> dossier `/ (root)`. La branche `gh-pages` est créée automatiquement par le
-> premier déploiement.
+[`scripts/ci/`](scripts/ci/) : les workflows ne font qu'appeler
+`node scripts/ci/prepare.js`, `node scripts/ci/finalize.js` et
+`node scripts/ci/cleanup.js`.
 
 ## Conventions
 

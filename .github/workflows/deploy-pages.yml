@@ -11,9 +11,12 @@ permissions:
   deployments: write
   pull-requests: write
   issues: write
+  pages: write
+  id-token: write
 
-# Every branch writes to the same gh-pages branch, so jobs are serialized.
-# cancel-in-progress: false ensures every commit eventually deploys.
+# Every branch writes to the same gh-pages tree and to the same Pages
+# environment, so we serialize. cancel-in-progress: false lets each commit
+# eventually deploy.
 concurrency:
   group: gh-pages-deploy
   cancel-in-progress: false
@@ -21,18 +24,54 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy_pages.outputs.page_url }}
     steps:
-      - name: Checkout source
+      - name: Checkout pushed branch
         uses: actions/checkout@v4
         with:
           path: source
+
+      - name: Checkout main (production root)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: source-main
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Run deploy
+      - name: Build gh-pages tree and create preview deployment
+        id: prepare
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node source/scripts/ci/deploy.js
+        run: node source/scripts/ci/prepare.js
+
+      - name: Configure Pages
+        if: steps.prepare.outputs.skipped != 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: steps.prepare.outputs.skipped != 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+      - name: Deploy to GitHub Pages
+        id: deploy_pages
+        if: steps.prepare.outputs.skipped != 'true'
+        uses: actions/deploy-pages@v4
+
+      - name: Finalize preview deployment + PR comment
+        if: always() && steps.prepare.outputs.skipped != 'true' && steps.prepare.outputs.deployment_id != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOYMENT_ID: ${{ steps.prepare.outputs.deployment_id }}
+          BRANCH: ${{ steps.prepare.outputs.branch }}
+          PREVIEW_URL: ${{ steps.prepare.outputs.preview_url }}
+          IS_PRODUCTION: ${{ steps.prepare.outputs.is_production }}
+          DEPLOY_OUTCOME: ${{ steps.deploy_pages.outcome }}
+        run: node source/scripts/ci/finalize.js
