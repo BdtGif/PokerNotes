@@ -45,8 +45,7 @@ Déploiement automatique sur GitHub Pages à chaque push :
 │   ├── exec.js             # Wrappers child_process
 │   ├── github.js           # Client REST GitHub (deployments, comments)
 │   ├── git-pages.js        # Synchro et push de l'arbre gh-pages
-│   ├── prepare.js          # Phase 1 : assemble l'arbre gh-pages, crée le deployment
-│   ├── finalize.js         # Phase 2 : marque le deployment success/failure, commente la PR
+│   ├── deploy.js           # Workflow de déploiement (push gh-pages, deployment, comment)
 │   └── cleanup.js          # Workflow de suppression de branche
 ├── .editorconfig
 ├── .gitignore
@@ -91,25 +90,28 @@ n'importe quelle branche. Aucune étape de build n'est nécessaire.
 
 À chaque push, le workflow :
 
-1. Reconstruit la branche `gh-pages` (contenu de `main` à la racine + branche
-   poussée sous `branches/<nom>/`).
-2. Publie ce contenu via `actions/upload-pages-artifact` +
-   `actions/deploy-pages` dans l'environnement `github-pages`. La source
-   Pages reste donc « GitHub Actions », aucun réglage manuel n'est requis.
-3. Pour les branches autres que `main`, crée un *GitHub Deployment* dans
-   un environnement `preview/<branche>` avec l'URL d'aperçu, visible dans
+1. Reconstruit la branche `gh-pages` (contenu de `main` à la racine +
+   branche poussée sous `branches/<nom>/`) et la pousse.
+2. Pour les branches autres que `main`, crée un *GitHub Deployment* dans
+   l'environnement `preview/<branche>` avec l'URL d'aperçu, visible dans
    l'onglet *Deployments* et la barre latérale des PR.
-4. Met à jour un commentaire « collant » sur chaque PR ouverte de la
+3. Met à jour un commentaire « collant » sur chaque PR ouverte de la
    branche avec l'URL d'aperçu et le SHA du commit.
 
 Le workflow [`cleanup-pages.yml`](.github/workflows/cleanup-pages.yml)
-supprime le sous-dossier correspondant lorsqu'une branche est supprimée
-puis re-déploie l'artefact Pages.
+supprime le sous-dossier correspondant lorsqu'une branche est supprimée.
 
 L'essentiel de la logique est en JavaScript dans
 [`scripts/ci/`](scripts/ci/) : les workflows ne font qu'appeler
-`node scripts/ci/prepare.js`, `node scripts/ci/finalize.js` et
-`node scripts/ci/cleanup.js`.
+`node scripts/ci/deploy.js` ou `node scripts/ci/cleanup.js`.
+
+> **Configuration requise (une fois)** : *Settings → Pages → Build and
+> deployment → Source = « Deploy from a branch »*, branche `gh-pages`,
+> dossier `/ (root)`. La branche `gh-pages` est créée automatiquement par
+> le premier déploiement. Cette source-là est nécessaire car
+> l'environnement `github-pages` utilisé par `actions/deploy-pages`
+> restreint par défaut le déploiement à la branche par défaut, ce qui
+> empêche les branches d'aperçu de publier.
 
 ## Conventions
 

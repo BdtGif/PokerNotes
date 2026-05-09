@@ -5,8 +5,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: gh-pages-deploy
@@ -16,8 +14,6 @@ jobs:
   cleanup:
     if: github.event.ref_type == 'branch' && github.event.ref != 'main'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
     steps:
       - name: Checkout main (for scripts)
         uses: actions/checkout@v4
@@ -31,22 +27,7 @@ jobs:
           node-version: '20'
 
       - name: Run cleanup
-        id: cleanup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DELETED_BRANCH: ${{ github.event.ref }}
         run: node source-main/scripts/ci/cleanup.js
-
-      - name: Configure Pages
-        if: steps.cleanup.outputs.cleaned == 'true'
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        if: steps.cleanup.outputs.cleaned == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: pages
-
-      - name: Deploy to GitHub Pages
-        if: steps.cleanup.outputs.cleaned == 'true'
-        uses: actions/deploy-pages@v4
