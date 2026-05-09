@@ -15,46 +15,19 @@ jobs:
     if: github.event.ref_type == 'branch' && github.event.ref != 'main'
     runs-on: ubuntu-latest
     steps:
-      - name: Remove branch subfolder from gh-pages
+      - name: Checkout default branch (for scripts)
+        uses: actions/checkout@v4
+        with:
+          path: source
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run cleanup
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH="${{ github.event.ref }}"
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir pages
-          cd pages
-          git init -q -b gh-pages
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          if ! git fetch --depth=1 origin gh-pages 2>/dev/null; then
-            echo "No gh-pages branch yet; nothing to clean."
-            exit 0
-          fi
-          git reset --hard origin/gh-pages
-          DEPLOY_PATH="branches/$BRANCH"
-          if [ ! -d "$DEPLOY_PATH" ]; then
-            echo "No deployment found for $BRANCH ($DEPLOY_PATH); nothing to do."
-            exit 0
-          fi
-          git rm -rq "$DEPLOY_PATH"
-          # Prune now-empty parent directories up to (but not including) "branches".
-          PARENT="$(dirname "$DEPLOY_PATH")"
-          while [ "$PARENT" != "branches" ] && [ "$PARENT" != "." ]; do
-            if [ -d "$PARENT" ] && [ -z "$(ls -A "$PARENT")" ]; then
-              rmdir "$PARENT"
-              PARENT="$(dirname "$PARENT")"
-            else
-              break
-            fi
-          done
-          git commit -q -m "Cleanup deployment for deleted branch $BRANCH"
-          for delay in 0 2 4 8 16; do
-            [ "$delay" -gt 0 ] && sleep "$delay"
-            if git push origin gh-pages; then
-              exit 0
-            fi
-            git fetch origin gh-pages || true
-            git rebase origin/gh-pages || git rebase --abort || true
-          done
-          echo "Push to gh-pages failed after retries." >&2
-          exit 1
+          DELETED_BRANCH: ${{ github.event.ref }}
+        run: node source/scripts/ci/cleanup.js
