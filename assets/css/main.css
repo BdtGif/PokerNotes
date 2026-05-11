@@ -31,7 +31,9 @@ html, body {
 }
 
 #app {
-  width: 100vw; height: 100vh;
+  width: 100vw;
+  height: 100vh;        /* fallback navigateurs anciens */
+  height: 100dvh;       /* exclut l'address bar iOS Safari */
   display: flex; flex-direction: column;
   background: radial-gradient(ellipse at top, #1a1a1a 0%, #050505 100%);
   position: relative;
