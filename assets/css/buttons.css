@@ -21,7 +21,7 @@
 /* ---------- TOGGLE PILL (ante / BB-ante) ---------- */
 .toggle-pill {
   background: #1a1410; border: 1px solid #3a2418;
-  color: var(--cream); padding: 5px 8px; border-radius: 6px;
+  color: var(--cream); padding: 7px 10px; border-radius: 6px;
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.05em; cursor: pointer;
 }
@@ -29,15 +29,15 @@
 
 /* ---------- BOUTONS +/- JOUEURS ---------- */
 .pc-btn {
-  width: 24px; height: 24px; border-radius: 4px; border: none;
+  width: 32px; height: 32px; border-radius: 4px; border: none;
   background: var(--rail-light); color: var(--cream);
-  font-size: 14px; font-weight: 700; cursor: pointer;
+  font-size: 16px; font-weight: 700; cursor: pointer;
 }
 .pc-btn:active { background: var(--gold); color: var(--ink); }
 
 /* ---------- BOUTONS D'ACTION (panneau inline) ---------- */
 .action-btn-inline {
-  padding: 9px 4px; border-radius: 6px; border: 1.5px solid transparent;
+  padding: 11px 5px; border-radius: 6px; border: 1.5px solid transparent;
   font-size: 11px; font-weight: 700; cursor: pointer;
   text-transform: uppercase; letter-spacing: 0.03em; transition: all 0.15s;
 }
@@ -61,7 +61,7 @@
 .pot-preset-btn {
   background: #1a1410; color: var(--cream);
   border: 1px solid var(--rail-light); border-radius: 3px;
-  padding: 4px 0; font-size: 9px; font-weight: 700;
+  padding: 8px 0; font-size: 9px; font-weight: 700;
   cursor: pointer; min-width: 0;
 }
 .pot-preset-btn:active { background: var(--gold); color: var(--ink); }

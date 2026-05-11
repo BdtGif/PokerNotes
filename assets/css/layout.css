@@ -39,7 +39,7 @@
 .table-area {
   flex: 1; position: relative;
   display: flex; align-items: center; justify-content: center;
-  padding: 30px 10px 10px; overflow: hidden;
+  padding: 10px; overflow: hidden;
 }
 .table-svg { width: 100%; height: 100%; max-width: 600px; }
 
@@ -189,13 +189,13 @@
   display: flex; align-items: center; gap: 6px; z-index: 5;
 }
 .unit-switch {
-  position: relative; width: 78px; height: 26px;
+  position: relative; width: 78px; height: 30px;
   background: #1a1410; border: 1px solid var(--rail-light);
-  border-radius: 13px; cursor: pointer; overflow: hidden;
+  border-radius: 15px; cursor: pointer; overflow: hidden;
 }
 .unit-switch-thumb {
   position: absolute; top: 2px; left: 2px;
-  width: 36px; height: 20px;
+  width: 36px; height: 24px;
   background: var(--gold); border-radius: 10px;
   transition: left 0.25s cubic-bezier(0.4,0,0.2,1);
 }

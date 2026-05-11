@@ -44,7 +44,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 .unit-toggle-mini button {
   background: #0a0805; color: var(--cream); border: none;
-  padding: 5px 6px; font-weight: 700; cursor: pointer; font-size: 9px;
+  padding: 7px 8px; font-weight: 700; cursor: pointer; font-size: 10px;
 }
 .unit-toggle-mini button.active { background: var(--gold); color: var(--ink); }
 

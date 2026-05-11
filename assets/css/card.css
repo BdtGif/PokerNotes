@@ -20,7 +20,7 @@
 .mini-card .card-rank { font-size: 17px; font-weight: 900; line-height: 1; }
 .mini-card .card-sym-tl,
 .mini-card .card-sym-br {
-  position: absolute; font-size: 8px; font-weight: 700;
+  position: absolute; font-size: 9px; font-weight: 700;
   color: rgba(255,255,255,0.85); line-height: 1;
 }
 .mini-card .card-sym-tl { top: 2px; left: 3px; }
@@ -84,6 +84,12 @@
 .card-picker-status {
   text-align: center; font-size: 13px; color: var(--gold);
   margin-bottom: 8px; min-height: 18px;
+}
+
+@media (max-width: 430px) {
+  .suit-row { grid-template-columns: 24px repeat(13, 1fr); gap: 2px; }
+  .suit-label { font-size: 18px; }
+  .card-picker { gap: 4px; }
 }
 
 /* ---------- CARTES MINIATURES (historique) ---------- */

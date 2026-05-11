@@ -10,6 +10,11 @@
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+@media (max-width: 430px) {
+  .overlay { padding: 8px; }
+  .modal { padding: 14px; }
+}
+
 /* ---------- MODALE ---------- */
 .modal {
   background: linear-gradient(180deg, #1a1410 0%, #0d0805 100%);
