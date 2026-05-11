@@ -11,9 +11,12 @@ serveur ni dépendance externe.
 
 ## Démo
 
-Déploiement automatique sur GitHub Pages à chaque push sur `main` :
+Déploiement automatique sur GitHub Pages à chaque push :
 
-- Production : [https://bdtgif.github.io/PokerNotes/](https://bdtgif.github.io/PokerNotes/)
+- Production (`main`) : [https://bdtgif.github.io/PokerNotes/](https://bdtgif.github.io/PokerNotes/)
+- Aperçus de branches : `https://bdtgif.github.io/PokerNotes/branches/<nom-de-branche>/`
+  (le nom est utilisé tel quel comme arborescence, p. ex. `feat/foo` →
+  `branches/feat/foo/`).
 
 ## Fonctionnalités
 
@@ -35,7 +38,15 @@ Déploiement automatique sur GitHub Pages à chaque push sur `main` :
 │   ├── css/styles.css      # Styles
 │   └── js/app.js           # Logique applicative (état, rendu, actions)
 ├── .github/workflows/
-│   └── deploy-pages.yml    # Déploiement GitHub Pages
+│   ├── deploy-pages.yml    # Déclenche le déploiement (appelle scripts/ci/deploy.js)
+│   └── cleanup-pages.yml   # Nettoie le sous-dossier d'une branche supprimée
+├── scripts/ci/             # Logique CI en Node (testable)
+│   ├── paths.js            # Calculs purs : branche → chemin / URL / environnement
+│   ├── exec.js             # Wrappers child_process
+│   ├── github.js           # Client REST GitHub (deployments, comments)
+│   ├── git-pages.js        # Synchro et push de l'arbre gh-pages
+│   ├── deploy.js           # Workflow de déploiement (push gh-pages, deployment, comment)
+│   └── cleanup.js          # Workflow de suppression de branche
 ├── .editorconfig
 ├── .gitignore
 ├── .nojekyll               # Désactive Jekyll côté Pages
@@ -68,8 +79,39 @@ Puis ouvrez http://localhost:8000.
 ## Déploiement
 
 Le workflow [`deploy-pages.yml`](.github/workflows/deploy-pages.yml) publie
-automatiquement le contenu du dépôt sur GitHub Pages à chaque `push` sur
-`main`. Aucune étape de build n'est nécessaire.
+automatiquement le contenu du dépôt sur GitHub Pages à chaque `push`, sur
+n'importe quelle branche. Aucune étape de build n'est nécessaire.
+
+- `main` est publié à la racine de Pages → `https://bdtgif.github.io/PokerNotes/`.
+- Les autres branches sont publiées dans `branches/<nom>/` →
+  `https://bdtgif.github.io/PokerNotes/branches/<nom>/`. Le nom de branche
+  est utilisé tel quel : une branche `feat/foo` se retrouve dans
+  `branches/feat/foo/`.
+
+À chaque push, le workflow :
+
+1. Reconstruit la branche `gh-pages` (contenu de `main` à la racine +
+   branche poussée sous `branches/<nom>/`) et la pousse.
+2. Pour les branches autres que `main`, crée un *GitHub Deployment* dans
+   l'environnement `preview/<branche>` avec l'URL d'aperçu, visible dans
+   l'onglet *Deployments* et la barre latérale des PR.
+3. Met à jour un commentaire « collant » sur chaque PR ouverte de la
+   branche avec l'URL d'aperçu et le SHA du commit.
+
+Le workflow [`cleanup-pages.yml`](.github/workflows/cleanup-pages.yml)
+supprime le sous-dossier correspondant lorsqu'une branche est supprimée.
+
+L'essentiel de la logique est en JavaScript dans
+[`scripts/ci/`](scripts/ci/) : les workflows ne font qu'appeler
+`node scripts/ci/deploy.js` ou `node scripts/ci/cleanup.js`.
+
+> **Configuration requise (une fois)** : *Settings → Pages → Build and
+> deployment → Source = « Deploy from a branch »*, branche `gh-pages`,
+> dossier `/ (root)`. La branche `gh-pages` est créée automatiquement par
+> le premier déploiement. Cette source-là est nécessaire car
+> l'environnement `github-pages` utilisé par `actions/deploy-pages`
+> restreint par défaut le déploiement à la branche par défaut, ce qui
+> empêche les branches d'aperçu de publier.
 
 ## Conventions
 

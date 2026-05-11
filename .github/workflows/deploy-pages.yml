@@ -2,33 +2,42 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - '**'
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
+  deployments: write
+  pull-requests: write
+  issues: write
 
+# All branches write to the same gh-pages branch, so we serialize.
 concurrency:
-  group: pages
+  group: gh-pages-deploy
   cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout pushed branch
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          path: source
+
+      - name: Checkout main (production root)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: source-main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build gh-pages tree, deploy, comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node source/scripts/ci/deploy.js
