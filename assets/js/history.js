@@ -87,7 +87,10 @@ export function showHistoryModal() {
             ${boardHtml ? `<div class="history-card-group history-board-group">${boardHtml}</div>` : ''}
           </div>` : '';
 
-        return `<div class="history-item">
+        const outcomeClass = !hand.winners || hand.winners.length === 0
+          ? 'history-item--incomplete'
+          : hand.winners.length > 1 ? 'history-item--tie' : 'history-item--win';
+        return `<div class="history-item ${outcomeClass}">
           <div class="history-item-header">
             <div class="history-meta">
               <span class="history-date">${dateStr} ${timeStr}</span>
