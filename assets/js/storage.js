@@ -4,6 +4,10 @@ import { state } from './state.js';
 import { showToast } from './utils.js';
 
 export const STORAGE_KEY = 'pokernotes_hands';
+export const PSEUDO_KEY   = 'pokernotes_pseudo';
+
+export function loadPseudo() { return localStorage.getItem(PSEUDO_KEY) || ''; }
+export function savePseudo(pseudo) { localStorage.setItem(PSEUDO_KEY, pseudo.trim()); }
 
 /** @returns {string} Identifiant unique pour une main */
 export function generateId() {

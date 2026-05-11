@@ -1,8 +1,8 @@
 /* history.js — Modal historique, export/import JSON */
 
-import { $, fmtChips, cardLabel } from './utils.js';
+import { $, fmtChips, cardLabel, showToast } from './utils.js';
 import { state } from './state.js';
-import { loadAllHands, saveAllHands, deleteHand } from './storage.js';
+import { loadAllHands, saveAllHands, deleteHand, loadPseudo, savePseudo } from './storage.js';
 import { showModal, closeModal } from './ui.js';
 
 function fmtHistAmt(n, bb) {
@@ -66,6 +66,7 @@ function _handStreetsHtml(hand) {
 export function showHistoryModal() {
   const hands = loadAllHands().slice().reverse();
   const count = hands.length;
+  const pseudo = loadPseudo();
 
   const listHtml = count === 0
     ? '<div class="history-empty">Aucune main sauvegardée.<br>Jouez une main pour commencer.</div>'
@@ -106,8 +107,13 @@ export function showHistoryModal() {
 
   const html = `
     <div class="modal-title">Historique (${count})</div>
+    <button class="history-pseudo-row" id="hist-pseudo-edit">
+      <span class="history-pseudo-label">Pseudo</span>
+      <span class="history-pseudo-value">${pseudo || '<span class="history-pseudo-empty">Non défini</span>'}</span>
+      <span class="history-pseudo-icon">✎</span>
+    </button>
     <div class="history-toolbar">
-      <button class="btn btn-secondary hist-btn" id="hist-export"${count === 0 ? ' disabled' : ''}>↓ Exporter JSON</button>
+      <button class="btn btn-secondary hist-btn${!pseudo && count > 0 ? ' hist-btn--blocked' : ''}" id="hist-export"${count === 0 ? ' disabled' : ''}>↓ Exporter JSON</button>
       <label class="btn btn-secondary hist-btn history-import-label">
         ↑ Importer JSON
         <input type="file" id="hist-import-input" accept=".json,application/json" style="display:none">
@@ -123,8 +129,45 @@ export function showHistoryModal() {
     onMount: () => {
       $('hist-close').addEventListener('click', closeModal);
 
+      $('hist-pseudo-edit').addEventListener('click', () => {
+        const cur = loadPseudo();
+        showModal(`
+          <div class="modal-title">Ton pseudo</div>
+          <div class="modal-subtitle">Utilisé pour nommer le fichier d'export.</div>
+          <input class="stack-input" id="pseudo-input" type="text"
+            value="${cur}" placeholder="Ex : John" maxlength="24"
+            autocomplete="off" autocorrect="off" spellcheck="false">
+          <div class="modal-actions">
+            <button class="btn btn-secondary" id="pseudo-cancel">Annuler</button>
+            <button class="btn btn-primary" id="pseudo-save">Sauvegarder</button>
+          </div>`, {
+          onMount: () => {
+            const input = $('pseudo-input');
+            input.focus(); input.select();
+            $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
+            $('pseudo-save').addEventListener('click', () => {
+              savePseudo(input.value);
+              closeModal();
+              showHistoryModal();
+            });
+            input.addEventListener('keydown', e => {
+              if (e.key === 'Enter') { savePseudo(input.value); closeModal(); showHistoryModal(); }
+            });
+          }
+        });
+      });
+
       const expBtn = $('hist-export');
-      if (expBtn) expBtn.addEventListener('click', exportHistory);
+      if (expBtn) expBtn.addEventListener('click', () => {
+        if (!loadPseudo()) {
+          showToast('Définis ton pseudo pour exporter', 2500);
+          const pseudoRow = $('hist-pseudo-edit');
+          pseudoRow.classList.add('history-pseudo-row--pulse');
+          setTimeout(() => pseudoRow.classList.remove('history-pseudo-row--pulse'), 800);
+        } else {
+          exportHistory();
+        }
+      });
 
       const impInput = $('hist-import-input');
       if (impInput) impInput.addEventListener('change', e => {
@@ -158,12 +201,14 @@ export function exportHistory() {
   const hands = loadAllHands();
   if (hands.length === 0) return;
   const dateStr = new Date().toISOString().split('T')[0];
+  const pseudo = loadPseudo();
+  const filename = pseudo ? `${pseudo}_${dateStr}.json` : `poker_hands_${dateStr}.json`;
   const payload = JSON.stringify({ version: '10.2', exportDate: new Date().toISOString(), hands }, null, 2);
   const blob = new Blob([payload], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `poker_hands_${dateStr}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
