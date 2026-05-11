@@ -66,19 +66,17 @@
 }
 .pot-preset-btn:active { background: var(--gold); color: var(--ink); }
 
-/* ---------- BOUTONS FLOTTANTS ---------- */
+/* ---------- BOUTONS TOP-BAR ---------- */
 .reset-btn {
-  position: absolute; top: 6px; right: 6px;
   background: #4b1c1c; color: var(--cream);
   border: 1px solid #7f1d1d; border-radius: 6px;
   padding: 4px 10px; font-size: 10px; font-weight: 700;
-  cursor: pointer; z-index: 200;
+  cursor: pointer;
 }
 .history-btn {
-  position: absolute; top: 6px; left: 6px;
   background: #1a2e25; color: var(--gold);
   border: 1px solid var(--felt-mid); border-radius: 6px;
   padding: 4px 10px; font-size: 10px; font-weight: 700;
-  cursor: pointer; z-index: 200;
+  cursor: pointer;
   letter-spacing: 0.05em; text-transform: uppercase;
 }

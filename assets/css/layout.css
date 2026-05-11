@@ -214,6 +214,14 @@
 .unit-switch:not(.bb) .unit-switch-labels span:first-child { color: var(--ink); }
 .unit-switch.bb .unit-switch-labels span:last-child { color: var(--ink); }
 
+/* ---------- BARRE DU HAUT ---------- */
+.top-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 12px;
+  background: linear-gradient(180deg, #1a1410 0%, #0a0805 100%);
+  border-bottom: 1px solid #2a1f15; z-index: 10;
+}
+
 /* ---------- BARRE DU BAS ---------- */
 .bottom-bar {
   display: flex; justify-content: space-between; align-items: center;
