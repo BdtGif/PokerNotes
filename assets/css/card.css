@@ -68,7 +68,7 @@
   border: 1px solid #aaa; border-radius: 4px;
   font-size: 16px; font-weight: 800; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.1s;
+  overflow: hidden; transition: all 0.1s;
 }
 .card-cell.suit-s { background: #111827; color: #ffffff; border-color: #1f2937; }
 .card-cell.suit-h { background: #c0392b; color: #ffffff; border-color: #991b1b; }
@@ -87,9 +87,10 @@
 }
 
 @media (max-width: 430px) {
-  .suit-row { grid-template-columns: 24px repeat(13, 1fr); gap: 2px; }
-  .suit-label { font-size: 18px; }
-  .card-picker { gap: 4px; }
+  .suit-row { grid-template-columns: 20px repeat(13, 1fr); gap: 2px; }
+  .suit-label { font-size: 14px; }
+  .card-picker { gap: 3px; margin: 8px 0; }
+  .card-cell { font-size: 11px; }
 }
 
 /* ---------- CARTES MINIATURES (historique) ---------- */

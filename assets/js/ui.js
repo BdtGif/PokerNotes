@@ -435,9 +435,9 @@ export function openHeroSetupModal(idx) {
     <label class="label" style="display:block;margin-bottom:6px;">Ton stack</label>
     <div class="stack-input-wrap">
       <input type="number" inputmode="decimal" class="stack-input" id="hero-stack" value="${stackVal}" placeholder="Ex: 100" autofocus>
-      <div class="unit-toggle-mini" style="height:48px;">
-        <button id="hero-unit-bb" class="active" style="padding:0 10px;font-size:11px;">BB</button>
-        <button id="hero-unit-chips" style="padding:0 10px;font-size:11px;">Jetons</button>
+      <div class="unit-toggle-mini">
+        <button id="hero-unit-bb" class="active">BB</button>
+        <button id="hero-unit-chips">Jetons</button>
       </div>
     </div>
     <label class="label" style="display:block;margin:12px 0 6px;">Ta main (sélectionne 2 cartes)</label>
@@ -476,9 +476,9 @@ export function openOpponentSetupModal(idx) {
     <label class="label" style="display:block;margin-bottom:6px;">Stack du joueur</label>
     <div class="stack-input-wrap">
       <input type="number" inputmode="decimal" class="stack-input" id="op-stack" value="${stackVal}" placeholder="Stack..." autofocus>
-      <div class="unit-toggle-mini" style="height:48px;">
-        <button id="op-unit-bb" class="active" style="padding:0 10px;font-size:11px;">BB</button>
-        <button id="op-unit-chips" style="padding:0 10px;font-size:11px;">Jetons</button>
+      <div class="unit-toggle-mini">
+        <button id="op-unit-bb" class="active">BB</button>
+        <button id="op-unit-chips">Jetons</button>
       </div>
     </div>
     <div style="display:flex;gap:6px;margin:8px 0;">
