@@ -1,8 +1,14 @@
 /* history.js — Modal historique, export/import JSON */
 
 import { $, fmtChips, cardLabel } from './utils.js';
+import { state } from './state.js';
 import { loadAllHands, saveAllHands, deleteHand } from './storage.js';
 import { showModal, closeModal } from './ui.js';
+
+function fmtHistAmt(n, bb) {
+  if (state.stackUnit === 'bb' && bb) return (n / bb).toFixed(1) + ' bb';
+  return fmtChips(n);
+}
 
 /** @param {Object} hand @returns {string} */
 export function handResultSummary(hand) {
@@ -12,7 +18,7 @@ export function handResultSummary(hand) {
   const w = hand.winners[0];
   const wp = (hand.players || []).find(p => p.pos === w.pos);
   const label = wp && wp.handValueLabel ? ' — ' + wp.handValueLabel : '';
-  return w.pos + ' gagne' + label + ' (' + fmtChips(w.share) + ')';
+  return w.pos + ' gagne' + label + ' (' + fmtHistAmt(w.share, hand.bb) + ')';
 }
 
 /** @param {string} card @returns {string} */
@@ -21,13 +27,13 @@ export function histCardHtml(card) {
   return `<div class="history-card ${l.cssClass}">${l.rank}</div>`;
 }
 
-function _fmtAction(a) {
+function _fmtAction(a, bb) {
   switch (a.action) {
     case 'fold':  return `<span class="hs-fold">${a.pos} fold</span>`;
     case 'check': return `${a.pos} chk`;
-    case 'call':  return `${a.pos} call ${fmtChips(a.amount)}`;
-    case 'raise': return `${a.pos} raise ${fmtChips(a.amount)}`;
-    case 'allin': return `${a.pos} shove ${fmtChips(a.amount)}`;
+    case 'call':  return `${a.pos} call ${fmtHistAmt(a.amount, bb)}`;
+    case 'raise': return `${a.pos} raise ${fmtHistAmt(a.amount, bb)}`;
+    case 'allin': return `${a.pos} shove ${fmtHistAmt(a.amount, bb)}`;
     default:      return `${a.pos} ${a.action}`;
   }
 }
@@ -50,7 +56,7 @@ function _handStreetsHtml(hand) {
     let row = `<div class="hs-street">`;
     row += `<span class="hs-label">${label}</span>`;
     if (hasCards) row += `<span class="hs-cards">${st.cards.map(histCardHtml).join('')}</span>`;
-    if (hasActions) row += `<span class="hs-actions">${st.actions.map(_fmtAction).join(' · ')}</span>`;
+    if (hasActions) row += `<span class="hs-actions">${st.actions.map(a => _fmtAction(a, hand.bb)).join(' · ')}</span>`;
     row += `</div>`;
     parts.push(row);
   }
