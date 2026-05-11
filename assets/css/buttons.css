@@ -9,29 +9,31 @@
 }
 .btn:active { transform: scale(0.97); }
 .btn-primary {
-  background: var(--blue); color: white;
-  box-shadow: 0 2px 8px rgba(37,99,235,0.4);
+  background: var(--call); color: white;
+  box-shadow: 0 2px 10px rgba(21,101,192,0.4);
 }
-.btn-primary:active { background: var(--blue-dark); }
-.btn-primary:disabled { background: var(--grey); opacity: 0.5; cursor: not-allowed; box-shadow: none; }
-.btn-secondary { background: #2a1f15; color: var(--cream); border: 1px solid var(--rail-light); }
-.btn-back-bottom { background: #2a1f15; color: var(--cream); border: 1px solid var(--rail-light); }
+.btn-primary:active { background: #0d47a1; }
+.btn-primary:disabled { background: var(--grey); opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.btn-secondary { background: var(--s3); color: var(--cream); border: 1px solid var(--b); }
+.btn-back-bottom { background: var(--s3); color: var(--cream); border: 1px solid var(--b); }
 .btn-back-bottom:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ---------- TOGGLE PILL (ante / BB-ante) ---------- */
 .toggle-pill {
-  background: #1a1410; border: 1px solid #3a2418;
+  background: var(--s2); border: 1px solid var(--b);
   color: var(--cream); padding: 7px 10px; border-radius: 6px;
   font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.05em; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 .toggle-pill.active { background: var(--gold); color: var(--ink); border-color: var(--gold); }
 
 /* ---------- BOUTONS +/- JOUEURS ---------- */
 .pc-btn {
   width: 32px; height: 32px; border-radius: 4px; border: none;
-  background: var(--rail-light); color: var(--cream);
+  background: var(--s3); color: var(--cream);
   font-size: 16px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 .pc-btn:active { background: var(--gold); color: var(--ink); }
 
@@ -41,42 +43,48 @@
   font-size: 11px; font-weight: 700; cursor: pointer;
   text-transform: uppercase; letter-spacing: 0.03em; transition: all 0.15s;
 }
-.action-fold  { background: #4b1c1c; color: #fca5a5; border-color: #7f1d1d; }
-.action-call  { background: #1e3a8a; color: #bfdbfe; border-color: #1e40af; }
-.action-check { background: #064e3b; color: #a7f3d0; border-color: #065f46; }
-.action-raise { background: #713f12; color: #fde68a; border-color: #92400e; }
-.action-allin { background: #7f1d1d; color: #fecaca; border-color: #b91c1c; }
-.action-back-inline { background: #2a1f15; color: var(--cream); border: 1px solid var(--rail-light); }
-.action-btn-inline:active { transform: scale(0.95); }
+.action-fold  { background: rgba(211,47,47,0.18);  color: #ef9a9a; border-color: rgba(211,47,47,0.5);  }
+.action-call  { background: rgba(21,101,192,0.18); color: #90caf9; border-color: rgba(21,101,192,0.5); }
+.action-check { background: rgba(46,125,50,0.18);  color: #a5d6a7; border-color: rgba(46,125,50,0.5);  }
+.action-raise { background: rgba(230,81,0,0.18);   color: #ffcc80; border-color: rgba(230,81,0,0.5);   }
+.action-allin { background: rgba(183,28,28,0.25);  color: #ffcdd2; border-color: rgba(183,28,28,0.6);  }
+.action-back-inline { background: var(--s3); color: var(--cream); border: 1px solid var(--b); }
+.action-btn-inline:active { transform: scale(0.95); opacity: 0.85; }
 
 /* ---------- BOUTON CONFIRMER RAISE ---------- */
 .raise-confirm {
   padding: 7px; border-radius: 4px; border: none;
-  background: var(--blue); color: white; font-weight: 800;
+  background: var(--call); color: white; font-weight: 800;
   cursor: pointer; font-size: 12px; flex-shrink: 0;
+  transition: opacity 0.15s;
 }
 .raise-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ---------- PRESETS % POT ---------- */
 .pot-preset-btn {
-  background: #1a1410; color: var(--cream);
-  border: 1px solid var(--rail-light); border-radius: 3px;
+  background: var(--s2); color: var(--cream);
+  border: 1px solid var(--b); border-radius: 3px;
   padding: 8px 0; font-size: 9px; font-weight: 700;
   cursor: pointer; min-width: 0;
+  transition: background 0.15s, color 0.15s;
 }
-.pot-preset-btn:active { background: var(--gold); color: var(--ink); }
+.pot-preset-btn:active { background: var(--gold); color: var(--ink); border-color: var(--gold); }
 
 /* ---------- BOUTONS TOP-BAR ---------- */
 .reset-btn {
-  background: #4b1c1c; color: var(--cream);
-  border: 1px solid #7f1d1d; border-radius: 6px;
-  padding: 4px 10px; font-size: 10px; font-weight: 700;
-  cursor: pointer;
+  background: rgba(211,47,47,0.14); color: #ef9a9a;
+  border: 1px solid rgba(211,47,47,0.4); border-radius: 6px;
+  padding: 5px 12px; font-size: 10px; font-weight: 700;
+  cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em;
+  transition: background 0.15s;
 }
+.reset-btn:active { background: rgba(211,47,47,0.32); }
+
 .history-btn {
-  background: #1a2e25; color: var(--gold);
-  border: 1px solid var(--felt-mid); border-radius: 6px;
-  padding: 4px 10px; font-size: 10px; font-weight: 700;
-  cursor: pointer;
-  letter-spacing: 0.05em; text-transform: uppercase;
+  background: var(--gold-bg); color: var(--gold);
+  border: 1px solid var(--gold-border); border-radius: 6px;
+  padding: 5px 12px; font-size: 10px; font-weight: 700;
+  cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em;
+  transition: background 0.15s;
 }
+.history-btn:active { background: rgba(200,156,60,0.22); }

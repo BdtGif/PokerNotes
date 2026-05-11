@@ -7,6 +7,7 @@
 import { state, SUITS, RANKS } from './state.js';
 import { $, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
 import { postBlindsForPreview } from './player.js';
+import { loadPseudo } from './storage.js';
 // Imports circulaires — safe à runtime (voir note ci-dessus)
 import { doAction, goBackOneAction, buildActionQueue, finishHand } from './hand.js';
 
@@ -53,6 +54,7 @@ export function renderSeats() {
   const cx = rect.width / 2, cy = rect.height / 2;
   const actingIdx = (state.betRound && (state.step.endsWith('-bet') || state.step === 'preflop'))
     ? state.betRound.queue[state.betRound.qIndex] : null;
+  const pseudo = loadPseudo();
 
   state.players.forEach((p, i) => {
     const { x, y } = positions[i];
@@ -84,7 +86,14 @@ export function renderSeats() {
     }
 
     const posEl = document.createElement('div');
-    posEl.className = 'seat-pos'; posEl.textContent = p.pos;
+    posEl.className = 'seat-pos';
+    if (p.idx === state.heroIdx && pseudo) {
+      const label = pseudo.length > 6 ? pseudo.slice(0, 6) : pseudo;
+      posEl.textContent = label;
+      posEl.style.fontSize = label.length > 3 ? '9px' : '13px';
+    } else {
+      posEl.textContent = p.pos;
+    }
     seat.appendChild(posEl);
 
     if (p.inHand && p.stackKnown && p.stack !== null) {

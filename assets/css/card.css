@@ -1,7 +1,7 @@
 /* card.css — Cartes de poker : mini-cartes, board, picker, historique */
 
-/* ---------- COULEURS COMMUNES (4-color deck) ---------- */
-/* Pique: fond noir  | Cœur: fond rouge | Carreau: fond bleu | Trèfle: fond vert */
+/* ---------- COULEURS (4-color deck) ---------- */
+/* Pique: bleu-noir | Cœur: rouge | Carreau: bleu vif | Trèfle: vert */
 
 /* ---------- MINI-CARTES (sur les sièges) ---------- */
 .mini-card {
@@ -9,14 +9,14 @@
   background: var(--cream); color: var(--ink);
   font-size: 15px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
   position: relative; overflow: hidden;
 }
 .mini-card.red { color: var(--red); }
-.mini-card.suit-s { background: #111827; color: #ffffff; }
-.mini-card.suit-h { background: #c0392b; color: #ffffff; }
-.mini-card.suit-d { background: #2563eb; color: #ffffff; }
-.mini-card.suit-c { background: #15803d; color: #ffffff; }
+.mini-card.suit-s { background: #0f172a; color: #e2e8f0; }
+.mini-card.suit-h { background: #c62828; color: #ffffff; }
+.mini-card.suit-d { background: #1565c0; color: #ffffff; }
+.mini-card.suit-c { background: #1b5e20; color: #ffffff; }
 .mini-card .card-rank { font-size: 17px; font-weight: 900; line-height: 1; }
 .mini-card .card-sym-tl,
 .mini-card .card-sym-br {
@@ -32,14 +32,14 @@
   background: var(--cream); color: var(--ink);
   font-size: 22px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   border: 1px solid #999; position: relative; overflow: hidden;
 }
 .board-card.red { color: var(--red); }
-.board-card.suit-s { background: #111827; color: #ffffff; border-color: #1f2937; }
-.board-card.suit-h { background: #c0392b; color: #ffffff; border-color: #991b1b; }
-.board-card.suit-d { background: #2563eb; color: #ffffff; border-color: #1d4ed8; }
-.board-card.suit-c { background: #15803d; color: #ffffff; border-color: #14532d; }
+.board-card.suit-s { background: #0f172a; color: #e2e8f0; border-color: #1e293b; }
+.board-card.suit-h { background: #c62828; color: #ffffff; border-color: #b71c1c; }
+.board-card.suit-d { background: #1565c0; color: #ffffff; border-color: #0d47a1; }
+.board-card.suit-c { background: #1b5e20; color: #ffffff; border-color: #145214; }
 .board-card .card-rank { font-size: 28px; font-weight: 900; line-height: 1; }
 .board-card .card-sym-tl,
 .board-card .card-sym-br {
@@ -49,7 +49,7 @@
 .board-card .card-sym-tl { top: 4px; left: 5px; }
 .board-card .card-sym-br { bottom: 4px; right: 5px; transform: rotate(180deg); }
 .board-card.empty {
-  background: transparent; border: 1px dashed rgba(244,234,213,0.2); box-shadow: none;
+  background: transparent; border: 1px dashed rgba(232,212,184,0.15); box-shadow: none;
 }
 
 /* ---------- SÉLECTEUR DE CARTES (modal) ---------- */
@@ -59,10 +59,10 @@
   gap: 4px; align-items: center;
 }
 .suit-label { font-size: 26px; text-align: center; font-weight: 800; }
-.suit-label.suit-s { color: #f4ead5; }
-.suit-label.suit-h { color: #c0392b; }
-.suit-label.suit-d { color: #2563eb; }
-.suit-label.suit-c { color: #15803d; }
+.suit-label.suit-s { color: #94a3b8; }
+.suit-label.suit-h { color: #ef5350; }
+.suit-label.suit-d { color: #42a5f5; }
+.suit-label.suit-c { color: #66bb6a; }
 .card-cell {
   aspect-ratio: 0.75; background: var(--cream); color: var(--ink);
   border: 1px solid #aaa; border-radius: 4px;
@@ -70,16 +70,16 @@
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; transition: all 0.1s;
 }
-.card-cell.suit-s { background: #111827; color: #ffffff; border-color: #1f2937; }
-.card-cell.suit-h { background: #c0392b; color: #ffffff; border-color: #991b1b; }
-.card-cell.suit-d { background: #2563eb; color: #ffffff; border-color: #1d4ed8; }
-.card-cell.suit-c { background: #15803d; color: #ffffff; border-color: #14532d; }
+.card-cell.suit-s { background: #0f172a; color: #e2e8f0; border-color: #1e293b; }
+.card-cell.suit-h { background: #c62828; color: #ffffff; border-color: #b71c1c; }
+.card-cell.suit-d { background: #1565c0; color: #ffffff; border-color: #0d47a1; }
+.card-cell.suit-c { background: #1b5e20; color: #ffffff; border-color: #145214; }
 .card-cell.selected {
   background: var(--gold) !important; color: var(--ink) !important;
   transform: scale(0.92); border-color: var(--ink) !important;
   box-shadow: 0 0 0 2px var(--gold);
 }
-.card-cell.disabled { opacity: 0.25; cursor: not-allowed; }
+.card-cell.disabled { opacity: 0.22; cursor: not-allowed; }
 .card-cell:active:not(.disabled) { transform: scale(0.92); }
 .card-picker-status {
   text-align: center; font-size: 13px; color: var(--gold);
@@ -100,7 +100,7 @@
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
-.history-card.suit-s { background: #111827; color: #ffffff; }
-.history-card.suit-h { background: #c0392b; color: #ffffff; }
-.history-card.suit-d { background: #2563eb; color: #ffffff; }
-.history-card.suit-c { background: #15803d; color: #ffffff; }
+.history-card.suit-s { background: #0f172a; color: #e2e8f0; }
+.history-card.suit-h { background: #c62828; color: #ffffff; }
+.history-card.suit-d { background: #1565c0; color: #ffffff; }
+.history-card.suit-c { background: #1b5e20; color: #ffffff; }
