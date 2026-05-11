@@ -9,7 +9,9 @@
 .history-list {
   display: flex; flex-direction: column; gap: 8px;
   max-height: 52vh; overflow-y: auto; padding-right: 2px;
+  scrollbar-width: none;
 }
+.history-list::-webkit-scrollbar { display: none; }
 .history-empty {
   text-align: center; color: var(--cream); opacity: 0.5;
   font-size: 13px; padding: 32px 0; line-height: 1.6;
