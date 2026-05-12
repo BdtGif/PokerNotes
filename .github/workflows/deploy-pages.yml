@@ -3,8 +3,6 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: ['**']
-  pull_request:
-    branches: [main]
 
 concurrency:
   group: gh-pages-deploy
@@ -14,13 +12,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Determine deploy path
         id: path
@@ -35,24 +33,33 @@ jobs:
             echo "branch_display=$BRANCH_NAME (branches/$SANITIZED_NAME)" >> $GITHUB_OUTPUT
           fi
 
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-repo
+        continue-on-error: true
+
       - name: Create deploy directory structure
         run: |
-          mkdir -p /tmp/deploy
+          mkdir -p gh-pages-repo
           if [ "${{ steps.path.outputs.deploy_path }}" != "." ]; then
-            mkdir -p "/tmp/deploy/${{ steps.path.outputs.deploy_path }}"
-            cp -r . "/tmp/deploy/${{ steps.path.outputs.deploy_path }}"
+            mkdir -p "gh-pages-repo/${{ steps.path.outputs.deploy_path }}"
+            rm -rf "gh-pages-repo/${{ steps.path.outputs.deploy_path }}"/*
+            cp -r . "gh-pages-repo/${{ steps.path.outputs.deploy_path }}" --exclude=gh-pages-repo --exclude=.git
           else
-            cp -r . /tmp/deploy/
+            cp -r . gh-pages-repo/ --exclude=gh-pages-repo --exclude=.git --exclude=branches
+            mkdir -p gh-pages-repo/branches
           fi
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '/tmp/deploy'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to gh-pages branch
+        run: |
+          cd gh-pages-repo
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "🚀 Deploy: ${{ steps.path.outputs.branch_display }}" || echo "No changes to commit"
+          git push origin gh-pages
 
       - name: Print deployment info
         run: |
