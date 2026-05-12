@@ -15,7 +15,7 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Determine deploy path
@@ -23,37 +23,16 @@ jobs:
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "deploy_path=." >> $GITHUB_OUTPUT
-            echo "branch_display=main (root)" >> $GITHUB_OUTPUT
           else
             BRANCH_NAME="${{ github.ref_name }}"
             SANITIZED_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
             echo "deploy_path=branches/$SANITIZED_NAME" >> $GITHUB_OUTPUT
-            echo "branch_display=$BRANCH_NAME (branches/$SANITIZED_NAME)" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout gh-pages
-        uses: actions/checkout@v4
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          ref: gh-pages
-          path: deploy
-        continue-on-error: true
-
-      - name: Copy files
-        run: |
-          if [ "${{ steps.path.outputs.deploy_path }}" == "." ]; then
-            rm -rf deploy/.git deploy/.github
-            cp -r . deploy/
-          else
-            mkdir -p "deploy/${{ steps.path.outputs.deploy_path }}"
-            rm -rf "deploy/${{ steps.path.outputs.deploy_path }}"
-            cp -r . "deploy/${{ steps.path.outputs.deploy_path }}"
-          fi
-
-      - name: Push to gh-pages
-        run: |
-          cd deploy
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Deploy: ${{ steps.path.outputs.branch_display }}" || true
-          git push origin gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          destination_dir: ${{ steps.path.outputs.deploy_path }}
+          keep_files: true
