@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Determine deploy path
         id: path
@@ -33,35 +31,29 @@ jobs:
             echo "branch_display=$BRANCH_NAME (branches/$SANITIZED_NAME)" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout gh-pages branch
+      - name: Checkout gh-pages
         uses: actions/checkout@v4
         with:
           ref: gh-pages
-          path: gh-pages-repo
+          path: deploy
         continue-on-error: true
 
-      - name: Create deploy directory structure
+      - name: Copy files
         run: |
-          mkdir -p gh-pages-repo
-          if [ "${{ steps.path.outputs.deploy_path }}" != "." ]; then
-            mkdir -p "gh-pages-repo/${{ steps.path.outputs.deploy_path }}"
-            rm -rf "gh-pages-repo/${{ steps.path.outputs.deploy_path }}"/*
-            cp -r . "gh-pages-repo/${{ steps.path.outputs.deploy_path }}" --exclude=gh-pages-repo --exclude=.git
+          if [ "${{ steps.path.outputs.deploy_path }}" == "." ]; then
+            rm -rf deploy/.git deploy/.github
+            cp -r . deploy/
           else
-            cp -r . gh-pages-repo/ --exclude=gh-pages-repo --exclude=.git --exclude=branches
-            mkdir -p gh-pages-repo/branches
+            mkdir -p "deploy/${{ steps.path.outputs.deploy_path }}"
+            rm -rf "deploy/${{ steps.path.outputs.deploy_path }}"
+            cp -r . "deploy/${{ steps.path.outputs.deploy_path }}"
           fi
 
-      - name: Deploy to gh-pages branch
+      - name: Push to gh-pages
         run: |
-          cd gh-pages-repo
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add -A
-          git commit -m "🚀 Deploy: ${{ steps.path.outputs.branch_display }}" || echo "No changes to commit"
+          cd deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Deploy: ${{ steps.path.outputs.branch_display }}" || true
           git push origin gh-pages
-
-      - name: Print deployment info
-        run: |
-          echo "✅ Deployed ${{ steps.path.outputs.branch_display }}"
-          echo "📍 URL: https://bdtgif.github.io/PokerNotes/${{ steps.path.outputs.deploy_path }}"
