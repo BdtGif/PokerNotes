@@ -1,0 +1,40 @@
+name: Cleanup GitHub Pages
+
+on:
+  delete:
+    branches: []
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.event.ref != 'main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Sanitize branch name
+        id: sanitize
+        run: |
+          BRANCH_NAME="${{ github.event.ref }}"
+          SANITIZED_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
+          echo "sanitized=$SANITIZED_NAME" >> $GITHUB_OUTPUT
+
+      - name: Remove branch folder
+        run: |
+          if [ -d "branches/${{ steps.sanitize.outputs.sanitized }}" ]; then
+            rm -rf "branches/${{ steps.sanitize.outputs.sanitized }}"
+            git config user.name "GitHub Actions"
+            git config user.email "actions@github.com"
+            git add -A
+            git commit -m "🗑️ Cleanup: removed branches/${{ steps.sanitize.outputs.sanitized }} (deleted ${{ github.event.ref }})" || echo "No changes to commit"
+            git push
+          fi
+
+      - name: Print cleanup info
+        run: |
+          echo "✅ Cleaned up branches/${{ steps.sanitize.outputs.sanitized }}"

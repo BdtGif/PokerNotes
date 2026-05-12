@@ -2,37 +2,59 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    branches: ['**']
+  pull_request:
+    branches: [main]
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: gh-pages-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Determine deploy path
+        id: path
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "deploy_path=." >> $GITHUB_OUTPUT
+            echo "branch_display=main (root)" >> $GITHUB_OUTPUT
+          else
+            BRANCH_NAME="${{ github.ref_name }}"
+            SANITIZED_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
+            echo "deploy_path=branches/$SANITIZED_NAME" >> $GITHUB_OUTPUT
+            echo "branch_display=$BRANCH_NAME (branches/$SANITIZED_NAME)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create deploy directory structure
+        run: |
+          mkdir -p /tmp/deploy
+          if [ "${{ steps.path.outputs.deploy_path }}" != "." ]; then
+            mkdir -p "/tmp/deploy/${{ steps.path.outputs.deploy_path }}"
+            cp -r . "/tmp/deploy/${{ steps.path.outputs.deploy_path }}"
+          else
+            cp -r . /tmp/deploy/
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '/tmp/deploy'
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Print deployment info
+        run: |
+          echo "✅ Deployed ${{ steps.path.outputs.branch_display }}"
+          echo "📍 URL: https://bdtgif.github.io/PokerNotes/${{ steps.path.outputs.deploy_path }}"
