@@ -5,7 +5,7 @@
  */
 
 import { state, SUITS, RANKS } from './state.js';
-import { $, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
+import { $, fmtChips, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
 import { postBlindsForPreview } from './player.js';
 import { loadPseudo } from './storage.js';
 // Imports circulaires — safe à runtime (voir note ci-dessus)
@@ -183,7 +183,8 @@ export function renderPot() {
   } else { wd.style.display = 'none'; }
   pd.style.display = 'block';
   pd.textContent = 'Pot : ' + fmtAmount(state.pot);
-  if (state.anteEnabled) {
+  // Afficher l'ante UNIQUEMENT en préflop et setup
+  if (state.anteEnabled && (state.step === 'preflop' || state.step === 'setup')) {
     const ante = getEffectiveAnte();
     if (ante > 0) { ad.style.display = 'block'; ad.textContent = 'Ante : ' + fmtAmount(ante); }
     else { ad.style.display = 'none'; }
@@ -192,16 +193,16 @@ export function renderPot() {
 
 export function renderStepIndicator() {
   const map = {
-    'setup': 'Étape 1 — Configurer la table',
-    'preflop': 'Préflop — Tour de mises',
-    'flop-cards': 'Flop — Sélectionne 3 cartes',
-    'flop-bet': 'Flop — Tour de mises',
-    'turn-cards': 'Turn — Sélectionne 1 carte',
-    'turn-bet': 'Turn — Tour de mises',
-    'river-cards': 'River — Sélectionne 1 carte',
-    'river-bet': 'River — Tour de mises',
-    'showdown': 'Showdown — Cartes adverses',
-    'result': 'Résultat'
+    'setup': 'Set up the hand',
+    'preflop': 'Preflop',
+    'flop-cards': 'Flop — Select 3 cards',
+    'flop-bet': 'Flop — Bet',
+    'turn-cards': 'Turn — Select 1 card',
+    'turn-bet': 'Turn — Bet',
+    'river-cards': 'River — Select 1 card',
+    'river-bet': 'River — Bet',
+    'showdown': 'Showdown — Opponent cards',
+    'result': 'Result'
   };
   $('step-indicator').textContent = map[state.step] || '';
 }
@@ -210,18 +211,18 @@ export function renderBottomBar() {
   const validateBtn = $('validate-setup-btn'), backBtn = $('back-btn');
   if (state.step === 'setup') {
     backBtn.disabled = state.heroIdx === null && state.players.every(p => !p.inHand);
-    backBtn.textContent = '← Retour';
-  } else { backBtn.disabled = false; backBtn.textContent = '← Retour'; }
+    backBtn.textContent = '← Back';
+  } else { backBtn.disabled = false; backBtn.textContent = '← Back'; }
 
   if (state.step === 'setup') {
     validateBtn.style.display = 'block';
     const inHandCount = state.players.filter(p => p.inHand).length;
     validateBtn.disabled = !(state.heroIdx !== null && inHandCount >= 2 && state.players[state.heroIdx].cards.length === 2);
-    validateBtn.textContent = 'Valider';
+    validateBtn.textContent = 'Confirm';
   } else if (state.step === 'result') {
     validateBtn.style.display = 'block';
     validateBtn.disabled = false;
-    validateBtn.textContent = 'Nouvelle main';
+    validateBtn.textContent = 'New Hand';
   } else { validateBtn.style.display = 'none'; }
 
   $('unit-switch').classList.toggle('bb', state.stackUnit === 'bb');
@@ -267,23 +268,29 @@ export function renderActionPanel() {
     : '';
 
   let infoHtml = toCall > 0
-    ? `<div class="action-panel-info"><strong>${player.pos}</strong> — À suivre : <strong>${fmtAmount(toCall)}</strong>${heroCardsHtml}</div>`
-    : `<div class="action-panel-info"><strong>${player.pos}</strong> — Aucune mise à suivre${heroCardsHtml}</div>`;
+    ? `<div class="action-panel-info"><strong>${player.pos}</strong> — To call : <strong>${fmtAmount(toCall)}</strong>${heroCardsHtml}</div>`
+    : `<div class="action-panel-info"><strong>${player.pos}</strong> — No bet to call${heroCardsHtml}</div>`;
 
   const showRaiseInput = state.raiseShownFor === idx;
   const showAllinInput = state.allinShownFor === idx;
 
   let buttonsHtml = '<div class="action-row-inline three">';
+// Affiche Fold s'il y a une mise à suivre (canCheck = false)
+// En préflop : uniquement s'il y a une mise à suivre (relance après blinds)
+// Postflop : toujours s'il y a une mise à suivre
+if (!canCheck) {
   buttonsHtml += `<button class="action-btn-inline action-fold" id="ap-fold">Fold</button>`;
-  if (canCheck) {
-    buttonsHtml += `<button class="action-btn-inline action-check" id="ap-check">Check</button>`;
-  } else {
-    let callDisplay = toCall, callIsAllin = false;
-    if (player.stackKnown && player.stack !== null && toCall >= player.stack) { callDisplay = player.stack; callIsAllin = true; }
-    buttonsHtml += `<button class="action-btn-inline action-call" id="ap-call">${callIsAllin ? 'Call all-in ' + fmtAmount(callDisplay) : 'Call ' + fmtAmount(callDisplay)}</button>`;
-  }
-  buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise">${state.currentBet > 0 ? 'Raise' : 'Bet'}</button></div>`;
-  buttonsHtml += `<div class="action-row-inline"><button class="action-btn-inline action-back-inline" id="ap-back">← Retour</button><button class="action-btn-inline action-allin" id="ap-allin">All-in</button></div>`;
+}
+if (canCheck) {
+  buttonsHtml += `<button class="action-btn-inline action-check" id="ap-check">Check</button>`;
+} else {
+  let callDisplay = toCall, callIsAllin = false;
+  if (player.stackKnown && player.stack !== null && toCall >= player.stack) { callDisplay = player.stack; callIsAllin = true; }
+  buttonsHtml += `<button class="action-btn-inline action-call" id="ap-call">${callIsAllin ? 'Call all-in ' + fmtAmount(callDisplay) : 'Call ' + fmtAmount(callDisplay)}</button>`;
+}
+const minRaise = state.currentBet === 0 ? state.bb : (state.currentBet + (state.betRound?.lastRaiseSize || state.bb));
+const minDisplay = state.stackUnit === 'bb' ? (minRaise / state.bb).toFixed(1) + ' bb' : fmtChips(Math.round(minRaise));
+buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><div>${state.currentBet > 0 ? 'Raise' : 'Bet'}</div><div style="font-size:9px;color:var(--color-text-secondary);">min ${minDisplay}</div></button></div>`;  buttonsHtml += `<div class="action-row-inline"><button class="action-btn-inline action-back-inline" id="ap-back">← Back</button><button class="action-btn-inline action-allin" id="ap-allin">All-in</button></div>`;
 
   let raiseInputHtml = '';
   if (showRaiseInput) {
@@ -292,9 +299,9 @@ export function renderActionPanel() {
     if (isPostflop) {
       const currentChips = state.raiseInput ? (state.raiseUnit === 'bb' ? parseFloat(state.raiseInput) * state.bb : parseFloat(state.raiseInput)) : 0;
       const pct = state.pot > 0 ? Math.min(200, Math.round((currentChips / state.pot) * 100)) : 0;
-      sliderHtml = `<div class="pot-slider-wrap"><div class="pot-slider-header"><span>% du pot</span><span class="pot-slider-value" id="ap-slider-val">${pct}%</span></div><input type="range" min="0" max="200" step="5" value="${pct}" class="pot-slider" id="ap-pot-slider"><div class="pot-slider-presets"><button class="pot-preset-btn" data-pct="20">20%</button><button class="pot-preset-btn" data-pct="25">¼</button><button class="pot-preset-btn" data-pct="33">⅓</button><button class="pot-preset-btn" data-pct="40">40%</button><button class="pot-preset-btn" data-pct="50">½</button><button class="pot-preset-btn" data-pct="66">⅔</button><button class="pot-preset-btn" data-pct="75">¾</button><button class="pot-preset-btn" data-pct="100">Pot</button><button class="pot-preset-btn" data-pct="125">125%</button></div></div>`;
+     sliderHtml = `<div class="pot-slider-wrap"><div class="pot-slider-header"><span>% du pot</span><span class="pot-slider-value" id="ap-slider-val">${pct}%</span></div><input type="range" min="0" max="200" step="5" value="${pct}" class="pot-slider" id="ap-pot-slider"></div>`;
     }
-    raiseInputHtml = `<div class="raise-inline-row"><input type="number" inputmode="decimal" class="raise-input-inline" id="ap-raise-input" value="${state.raiseInput || ''}" placeholder="Total" autofocus><div class="unit-toggle-mini"><button id="ap-unit-chips" class="${state.raiseUnit==='chips'?'active':''}">J</button><button id="ap-unit-bb" class="${state.raiseUnit==='bb'?'active':''}">BB</button></div><button class="raise-confirm" id="ap-raise-ok">OK</button></div>${state.raiseError ? `<div class="raise-error">${state.raiseError}</div>` : ''}${sliderHtml}`;
+    raiseInputHtml = `<div class="raise-inline-row"><input type="number" inputmode="decimal" class="raise-input-inline" id="ap-raise-input" value="${state.raiseInput || ''}" placeholder="Total" autofocus><div class="unit-toggle-mini"><button id="ap-unit-chips" class="${state.raiseUnit==='chips'?'active':''}">Tks</button><button id="ap-unit-bb" class="${state.raiseUnit==='bb'?'active':''}">BB</button></div><button class="raise-confirm" id="ap-raise-ok">OK</button></div>${state.raiseError ? `<div class="raise-error">${state.raiseError}</div>` : ''}${sliderHtml}`;
   }
 
   let allinInputHtml = '';
@@ -358,15 +365,7 @@ export function renderActionPanel() {
         const display = state.raiseUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
         state.raiseInput = String(display); $('ap-raise-input').value = display;
       });
-      document.querySelectorAll('.pot-preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const pct = parseInt(btn.dataset.pct);
-          slider.value = pct; $('ap-slider-val').textContent = pct + '%';
-          const chips = (state.pot * pct) / 100;
-          const display = state.raiseUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
-          state.raiseInput = String(display); $('ap-raise-input').value = display;
-        });
-      });
+      
     }
     $('ap-raise-ok').addEventListener('click', () => {
       const v = parseFloat($('ap-raise-input').value);
@@ -439,22 +438,22 @@ export function openHeroSetupModal(idx) {
   const p = state.players[idx];
   let stackVal = p.stack || '', selectedCards = [...p.cards], stackInputUnit = 'bb';
   const html = `
-    <div class="modal-title">Ta position : ${p.pos}</div>
-    <div class="modal-subtitle">Saisis ton stack et choisis tes 2 cartes</div>
-    <label class="label" style="display:block;margin-bottom:6px;">Ton stack</label>
+    <div class="modal-title">Your position : ${p.pos}</div>
+    <div class="modal-subtitle">Enter your stack and select 2 cards</div>
+    <label class="label" style="display:block;margin-bottom:6px;">Your stack</label>
     <div class="stack-input-wrap">
       <input type="number" inputmode="decimal" class="stack-input" id="hero-stack" value="${stackVal}" placeholder="Ex: 100" autofocus>
       <div class="unit-toggle-mini">
         <button id="hero-unit-bb" class="active">BB</button>
-        <button id="hero-unit-chips">Jetons</button>
+        <button id="hero-unit-chips">Tks</button>
       </div>
     </div>
-    <label class="label" style="display:block;margin:12px 0 6px;">Ta main (sélectionne 2 cartes)</label>
+    <label class="label" style="display:block;margin:12px 0 6px;">Your hand - Select 2 cards</label>
     <div class="card-picker-status" id="cp-status"></div>
     <div class="card-picker" id="card-picker"></div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="hero-cancel">Annuler</button>
-      <button class="btn btn-primary" id="hero-ok" disabled>Valider</button>
+      <button class="btn btn-secondary" id="hero-cancel">Cancel</button>
+      <button class="btn btn-primary" id="hero-ok" disabled>Confirm</button>
     </div>`;
   showModal(html, {
     onMount: () => {
@@ -487,7 +486,7 @@ export function openOpponentSetupModal(idx) {
       <input type="number" inputmode="decimal" class="stack-input" id="op-stack" value="${stackVal}" placeholder="Stack..." autofocus>
       <div class="unit-toggle-mini">
         <button id="op-unit-bb" class="active">BB</button>
-        <button id="op-unit-chips">Jetons</button>
+        <button id="op-unit-chips">Tks</button>
       </div>
     </div>
     <div style="display:flex;gap:6px;margin:8px 0;">
@@ -495,8 +494,8 @@ export function openOpponentSetupModal(idx) {
       ${p.inHand ? '<button class="btn btn-secondary" id="op-remove" style="flex:1;padding:10px;background:#4b1c1c;color:#fca5a5;border-color:#7f1d1d;">Retirer de la main</button>' : ''}
     </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="op-cancel">Annuler</button>
-      <button class="btn btn-primary" id="op-ok">Valider</button>
+      <button class="btn btn-secondary" id="op-cancel">Cancel</button>
+      <button class="btn btn-primary" id="op-ok">Confirm</button>
     </div>`;
   showModal(html, {
     onMount: () => {
@@ -534,8 +533,8 @@ export function buildCardPicker(currentSelection, maxSelect, onChange, allowFewe
   let selection = [...currentSelection];
   const refreshStatus = () => {
     status.textContent = allowFewer
-      ? `${selection.length}/${maxSelect} carte(s) — tu peux en choisir 0, 1 ou ${maxSelect}`
-      : `${selection.length}/${maxSelect} carte(s) sélectionnée(s)`;
+      ? `${selection.length}/${maxSelect} card(s) - you can select 0, 1 or ${maxSelect}`
+      : `${selection.length}/${maxSelect} card(s) selected`;
   };
   const render2 = () => {
     root.innerHTML = '';
@@ -587,12 +586,12 @@ export function promptCardSelection(street, autoMode = false) {
   let selected = [];
   const html = `
     <div class="modal-title">${street.toUpperCase()}</div>
-    <div class="modal-subtitle">Sélectionne ${count} carte${count > 1 ? 's' : ''} du board${autoMode ? ' — joueurs all-in' : ''}</div>
+    <div class="modal-subtitle">Select ${count} card${count > 1 ? 's' : ''} from the board${autoMode ? ' - players all-in' : ''}</div>
     <div class="card-picker-status" id="cp-status"></div>
     <div class="card-picker" id="card-picker"></div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="cards-back">← Retour</button>
-      <button class="btn btn-primary" id="cards-ok" disabled>Valider</button>
+      <button class="btn btn-secondary" id="cards-back">← Back</button>
+      <button class="btn btn-primary" id="cards-ok" disabled>Confirm</button>
     </div>`;
   showModal(html, {
     onMount: () => {
@@ -652,13 +651,13 @@ export function openShowdownCardModal(idx, onDone) {
   const p = state.players[idx];
   let selected = [...p.cards];
   const html = `
-    <div class="modal-title">Cartes — ${p.pos}</div>
-    <div class="modal-subtitle">0, 1 ou 2 cartes (N/C si inconnues)</div>
+    <div class="modal-title">Cards — ${p.pos}</div>
+    <div class="modal-subtitle">0, 1 or 2 cards (N/C if unknown)</div>
     <div class="card-picker-status" id="cp-status"></div>
     <div class="card-picker" id="card-picker"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" id="show-nc">N/C</button>
-      <button class="btn btn-primary" id="show-ok">Valider</button>
+      <button class="btn btn-primary" id="show-ok">Confirm</button>
     </div>`;
   showModal(html, {
     onMount: () => {

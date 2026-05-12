@@ -13,12 +13,24 @@ function fmtHistAmt(n, bb) {
 /** @param {Object} hand @returns {string} */
 export function handResultSummary(hand) {
   if (!hand.winners || hand.winners.length === 0) return 'Main incomplète';
-  if (hand.winners.length > 1)
-    return 'Égalité : ' + hand.winners.map(w => w.pos).join(' / ');
+  
+  const heroPlayer = hand.heroIdx !== null && hand.heroIdx !== undefined ? hand.players?.[hand.heroIdx] : null;
+  
+  if (hand.winners.length > 1) {
+    const winnerNames = hand.winners.map(w => {
+      return heroPlayer && heroPlayer.pos === w.pos ? `Hero (${w.pos})` : w.pos;
+    });
+    return 'Égalité : ' + winnerNames.join(' / ');
+  }
+  
   const w = hand.winners[0];
   const wp = (hand.players || []).find(p => p.pos === w.pos);
+  
+  // Affiche "Hero (position)" si le gagnant est Hero, sinon juste la position
+  const displayName = heroPlayer && heroPlayer.pos === w.pos ? `Hero (${w.pos})` : w.pos;
+  
   const label = wp && wp.handValueLabel ? ' — ' + wp.handValueLabel : '';
-  return w.pos + ' gagne' + label + ' (' + fmtHistAmt(w.share, hand.bb) + ')';
+  return displayName + ' wins' + label + ' (' + fmtHistAmt(w.share, hand.bb) + ')';
 }
 
 /** @param {string} card @returns {string} */
@@ -27,18 +39,23 @@ export function histCardHtml(card) {
   return `<div class="history-card ${l.cssClass}">${l.rank}</div>`;
 }
 
-function _fmtAction(a, bb) {
+function _fmtAction(a, bb, potBeforeAction, unit = 'chips', hand) {
+  const pctPot = potBeforeAction > 0 ? Math.round((a.amount / potBeforeAction) * 100) : 0;
+  const amt = unit === 'bb' ? (a.amount / bb).toFixed(1) + ' bb' : fmtChips(Math.round(a.amount));
+  // Déterminer si c'est le héros
+  const heroPlayer = (hand && hand.players || []).find(p => p.inHand && p.cards && p.cards.length === 2);
+  const displayPos = heroPlayer && heroPlayer.pos === a.pos ? `Hero (${a.pos})` : a.pos;
   switch (a.action) {
-    case 'fold':  return `<span class="hs-fold">${a.pos} fold</span>`;
-    case 'check': return `${a.pos} chk`;
-    case 'call':  return `${a.pos} call ${fmtHistAmt(a.amount, bb)}`;
-    case 'raise': return `${a.pos} raise ${fmtHistAmt(a.amount, bb)}`;
-    case 'allin': return `${a.pos} shove ${fmtHistAmt(a.amount, bb)}`;
-    default:      return `${a.pos} ${a.action}`;
+    case 'fold':  return `<span class="hs-fold">${displayPos} fold</span>`;
+    case 'check': return `${displayPos} chk`;
+    case 'call':  return `${displayPos} call ${amt}`;
+    case 'raise': return `${displayPos} raise ${amt} (${pctPot}%)`;
+    case 'allin': return `${displayPos} shove ${amt} (${pctPot}%)`;
+    default:      return `${displayPos} ${a.action}`;
   }
 }
 
-function _handStreetsHtml(hand) {
+function _handStreetsHtml(hand, unit = 'chips') {
   if (!hand.streets) return '';
   const defs = [
     { key: 'preflop', label: 'PF' },
@@ -56,7 +73,17 @@ function _handStreetsHtml(hand) {
     let row = `<div class="hs-street">`;
     row += `<span class="hs-label">${label}</span>`;
     if (hasCards) row += `<span class="hs-cards">${st.cards.map(histCardHtml).join('')}</span>`;
-    if (hasActions) row += `<span class="hs-actions">${st.actions.map(a => _fmtAction(a, hand.bb)).join(' · ')}</span>`;
+    if (hasActions) {
+      let potBefore = key === 'preflop' ? 0 : hand.streets[defs[defs.findIndex(d => d.key === key) - 1]?.key]?.potEnd || 0;
+      const actionsHtml = st.actions.map(a => {
+        const html = _fmtAction(a, hand.bb, potBefore, unit, hand);
+        potBefore += a.amount || 0;
+        return html;
+      }).join(' · ');
+      row += `<span class="hs-actions">${actionsHtml}</span>`;
+      const potDisplay = unit === 'bb' ? (st.potEnd / hand.bb).toFixed(1) + ' bb' : fmtChips(Math.round(st.potEnd));
+      row += ` <span class="hs-pot-end" style="font-weight:600;color:#fbbf24;">pot ${potDisplay}</span>`;
+    }
     row += `</div>`;
     parts.push(row);
   }
@@ -68,7 +95,7 @@ export function showHistoryModal() {
   const count = hands.length;
   const pseudo = loadPseudo();
 
-  const listHtml = count === 0
+ const listHtml = count === 0
     ? '<div class="history-empty">Aucune main sauvegardée.<br>Jouez une main pour commencer.</div>'
     : hands.map(hand => {
         const d = new Date(hand.date);
@@ -79,7 +106,18 @@ export function showHistoryModal() {
           ? (hand.bbAnteMode ? ' · BB/Ante' : ` · Ante ${hand.ante}`) : '';
         const summary = handResultSummary(hand);
 
-        const heroPlayer = (hand.players || []).find(p => p.inHand && p.cards && p.cards.length === 2);
+        // Déclare heroPlayer ET heroResult au début
+       const heroPlayer = hand.heroIdx !== null && hand.heroIdx !== undefined ? hand.players?.[hand.heroIdx] : null;
+        const heroResult = heroPlayer ? heroPlayer.result : null;
+        
+        // Détermine la couleur en fonction du résultat de Hero
+        const outcomeClass = !hand.winners || hand.winners.length === 0
+  ? 'history-item--incomplete'
+  : heroResult === 'win' ? 'history-item--win'
+  : heroResult === 'tie' ? 'history-item--tie'
+  : heroResult === 'lose' ? 'history-item--lose'
+  : 'history-item--incomplete';
+
         const heroHtml = heroPlayer ? heroPlayer.cards.map(histCardHtml).join('') : '';
         const boardHtml = (hand.board || []).map(histCardHtml).join('');
         const cardsRow = heroHtml || boardHtml ? `
@@ -88,25 +126,26 @@ export function showHistoryModal() {
             ${boardHtml ? `<div class="history-card-group history-board-group">${boardHtml}</div>` : ''}
           </div>` : '';
 
-        const heroResult = heroPlayer ? heroPlayer.result : null;
-        const outcomeClass = !hand.winners || hand.winners.length === 0
-          ? 'history-item--incomplete'
-          : heroResult === 'win' ? 'history-item--win'
-          : heroResult === 'tie' ? 'history-item--tie'
-          : heroResult === 'lose' ? 'history-item--lose'
-          : 'history-item--incomplete';
         return `<div class="history-item ${outcomeClass}">
-          <div class="history-item-header">
-            <div class="history-meta">
-              <span class="history-date">${dateStr} ${timeStr}</span>
-              <span class="history-blinds">${hand.sb}/${hand.bb}${anteTag} · ${inHandCount} joueurs</span>
-            </div>
-            <button class="history-delete-btn" data-id="${hand.id}">✕</button>
-          </div>
-          <div class="history-summary">${summary}</div>
-          ${_handStreetsHtml(hand)}
-          ${cardsRow}
-        </div>`;
+  <div class="history-item-header">
+    <div class="history-meta">
+      <span class="history-date">${dateStr} ${timeStr}</span>
+      <span class="history-blinds">${hand.sb}/${hand.bb}${anteTag} · ${inHandCount} Players</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="history-unit-toggle" data-hand-id="${hand.id}">
+        <button class="history-unit-btn chips-btn active" data-unit="chips">Tks</button>
+        <button class="history-unit-btn bb-btn" data-unit="bb">BB</button>
+      </div>
+      <button class="history-delete-btn" data-id="${hand.id}">✕</button>
+    </div>
+  </div>
+  <div class="history-summary">${summary}</div>
+  <div class="history-hand-content" data-hand-id="${hand.id}">
+    ${_handStreetsHtml(hand, 'chips')}
+  </div>
+  ${cardsRow}
+</div>`;
       }).join('');
 
   const html = `
@@ -125,80 +164,103 @@ export function showHistoryModal() {
     </div>
     <div class="history-list">${listHtml}</div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="hist-close">Fermer</button>
-      ${count > 0 ? '<button class="btn" style="background:#4b1c1c;color:#fca5a5;border:1px solid #7f1d1d;flex:0.7;" id="hist-clear">Tout effacer</button>' : ''}
+      <button class="btn btn-secondary" id="hist-close">Close</button>
+      ${count > 0 ? '<button class="btn" style="background:#4b1c1c;color:#fca5a5;border:1px solid #7f1d1d;flex:0.7;" id="hist-clear">Clear</button>' : ''}
     </div>`;
 
   showModal(html, {
-    onMount: () => {
-      $('hist-close').addEventListener('click', closeModal);
+  onMount: () => {
+    $('hist-close').addEventListener('click', closeModal);
 
-      $('hist-pseudo-edit').addEventListener('click', () => {
-        const cur = loadPseudo();
-        showModal(`
-          <div class="modal-title">Ton pseudo</div>
-          <div class="modal-subtitle">Utilisé pour nommer le fichier d'export.</div>
-          <input class="stack-input" id="pseudo-input" type="text"
-            value="${cur}" placeholder="Ex : John" maxlength="24"
-            autocomplete="off" autocorrect="off" spellcheck="false">
-          <div class="modal-actions">
-            <button class="btn btn-secondary" id="pseudo-cancel">Annuler</button>
-            <button class="btn btn-primary" id="pseudo-save">Sauvegarder</button>
-          </div>`, {
-          onMount: () => {
-            const input = $('pseudo-input');
-            input.focus(); input.select();
-            $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
-            $('pseudo-save').addEventListener('click', () => {
-              savePseudo(input.value);
-              closeModal();
-              showHistoryModal();
-            });
-            input.addEventListener('keydown', e => {
-              if (e.key === 'Enter') { savePseudo(input.value); closeModal(); showHistoryModal(); }
-            });
-          }
-        });
-      });
-
-      const expBtn = $('hist-export');
-      if (expBtn) expBtn.addEventListener('click', () => {
-        if (!loadPseudo()) {
-          showToast('Définis ton pseudo pour exporter', 2500);
-          const pseudoRow = $('hist-pseudo-edit');
-          pseudoRow.classList.add('history-pseudo-row--pulse');
-          setTimeout(() => pseudoRow.classList.remove('history-pseudo-row--pulse'), 800);
-        } else {
-          exportHistory();
+    $('hist-pseudo-edit').addEventListener('click', () => {
+      const cur = loadPseudo();
+      showModal(`
+        <div class="modal-title">Ton pseudo</div>
+        <div class="modal-subtitle">Utilisé pour nommer le fichier d'export.</div>
+        <input class="stack-input" id="pseudo-input" type="text"
+          value="${cur}" placeholder="Ex : John" maxlength="24"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
+          <button class="btn btn-primary" id="pseudo-save">Save</button>
+        </div>`, {
+        onMount: () => {
+          const input = $('pseudo-input');
+          input.focus(); input.select();
+          $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
+          $('pseudo-save').addEventListener('click', () => {
+            savePseudo(input.value);
+            closeModal();
+            showHistoryModal();
+          });
+          input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { savePseudo(input.value); closeModal(); showHistoryModal(); }
+          });
         }
       });
+    });
 
-      const impInput = $('hist-import-input');
-      if (impInput) impInput.addEventListener('change', e => {
-        if (e.target.files[0]) handleImportFile(e.target.files[0]);
-      });
+    const expBtn = $('hist-export');
+    if (expBtn) expBtn.addEventListener('click', () => {
+      if (!loadPseudo()) {
+        showToast('Définis ton pseudo pour exporter', 2500);
+        const pseudoRow = $('hist-pseudo-edit');
+        pseudoRow.classList.add('history-pseudo-row--pulse');
+        setTimeout(() => pseudoRow.classList.remove('history-pseudo-row--pulse'), 800);
+      } else {
+        exportHistory();
+      }
+    });
 
-      const clrBtn = $('hist-clear');
-      if (clrBtn) clrBtn.addEventListener('click', () => {
-        showModal(`
-          <div class="modal-title">Tout effacer ?</div>
-          <div class="modal-subtitle">L'historique sera définitivement supprimé.</div>
-          <div class="modal-actions">
-            <button class="btn btn-secondary" id="clr-cancel">Annuler</button>
-            <button class="btn" style="background:#b91c1c;color:white;" id="clr-confirm">Effacer tout</button>
-          </div>`, {
-          onMount: () => {
-            $('clr-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
-            $('clr-confirm').addEventListener('click', () => { saveAllHands([]); closeModal(); showHistoryModal(); });
-          }
-        });
-      });
+    const impInput = $('hist-import-input');
+    if (impInput) impInput.addEventListener('change', e => {
+      if (e.target.files[0]) handleImportFile(e.target.files[0]);
+    });
 
-      document.querySelectorAll('.history-delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => { deleteHand(btn.dataset.id); showHistoryModal(); });
+    const clrBtn = $('hist-clear');
+    if (clrBtn) clrBtn.addEventListener('click', () => {
+      showModal(`
+        <div class="modal-title">Tout effacer ?</div>
+        <div class="modal-subtitle">L'historique sera définitivement supprimé.</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="clr-cancel">Cancel</button>
+          <button class="btn" style="background:#b91c1c;color:white;" id="clr-confirm">Clear all</button>
+        </div>`, {
+        onMount: () => {
+          $('clr-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
+          $('clr-confirm').addEventListener('click', () => { saveAllHands([]); closeModal(); showHistoryModal(); });
+        }
       });
-    }
-  });
+    });
+
+    document.querySelectorAll('.history-delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => { deleteHand(btn.dataset.id); showHistoryModal(); });
+    });
+
+    // Event listeners pour les toggles d'unit par main
+    document.querySelectorAll('.history-unit-toggle').forEach(toggle => {
+      const handId = toggle.dataset.handId;
+      const chipsBtn = toggle.querySelector('.chips-btn');
+      const bbBtn = toggle.querySelector('.bb-btn');
+      const contentDiv = document.querySelector(`[data-hand-id="${handId}"].history-hand-content`);
+      const hand = hands.find(h => h.id === handId);
+      
+      if (!hand) return;
+      
+      chipsBtn.addEventListener('click', () => {
+        chipsBtn.classList.add('active');
+        bbBtn.classList.remove('active');
+        contentDiv.innerHTML = _handStreetsHtml(hand, 'chips');
+      });
+      
+      bbBtn.addEventListener('click', () => {
+        bbBtn.classList.add('active');
+        chipsBtn.classList.remove('active');
+        contentDiv.innerHTML = _handStreetsHtml(hand, 'bb');
+      });
+    });
+  }
+});
 }
 
 export function exportHistory() {
@@ -237,8 +299,8 @@ export function handleImportFile(file) {
       saveAllHands([...existingMap.values()]);
       closeModal();
       showModal(`
-        <div class="modal-title">Import terminé</div>
-        <div class="modal-subtitle">${added} main(s) ajoutée(s)${replaced ? ', ' + replaced + ' remplacée(s)' : ''}.</div>
+        <div class="modal-title">Import completed</div>
+        <div class="modal-subtitle">${added} hand(s) added${replaced ? ', ' + replaced + ' replaced' : ''}.</div>
         <div class="modal-actions"><button class="btn btn-primary" id="imp-ok">OK</button></div>`, {
         onMount: () => { $('imp-ok').addEventListener('click', () => { closeModal(); showHistoryModal(); }); }
       });
@@ -247,7 +309,7 @@ export function handleImportFile(file) {
       showModal(`
         <div class="modal-title">Erreur d'import</div>
         <div class="modal-subtitle">${err.message}</div>
-        <div class="modal-actions"><button class="btn btn-secondary" id="imp-err-ok">Retour</button></div>`, {
+        <div class="modal-actions"><button class="btn btn-secondary" id="imp-err-ok">Back</button></div>`, {
         onMount: () => { $('imp-err-ok').addEventListener('click', () => { closeModal(); showHistoryModal(); }); }
       });
     }

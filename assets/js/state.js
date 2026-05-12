@@ -20,8 +20,8 @@ export const POSITIONS = {
   10: ['BU','SB','BB','UTG','UTG+1','UTG+2','MP','LJ','HJ','CO']
 };
 export const HAND_RANK_LABELS = [
-  'Carte haute','Paire','Double paire','Brelan','Quinte',
-  'Couleur','Full','Carré','Quinte flush','Quinte flush royale'
+  'High card','Pair','Two pair','Three of a kind','Straight',
+  'Flush','Full house','Four of a kind','Straight flush','Royal flush'
 ];
 
 /** État global de la session en cours. Muté directement par les modules. */

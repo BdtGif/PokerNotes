@@ -49,6 +49,7 @@ export function deleteHand(id) {
 export function buildHandRecord() {
   return {
     id: generateId(),
+    heroIdx: state.heroIdx,
     date: new Date().toISOString(),
     sb: state.sb, bb: state.bb,
     ante: state.ante, anteEnabled: state.anteEnabled, bbAnteMode: state.bbAnteMode,
