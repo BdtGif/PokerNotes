@@ -60,15 +60,25 @@
 }
 .raise-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ---------- PRESETS % POT ---------- */
-.pot-preset-btn {
-  background: var(--s2); color: var(--cream);
-  border: 1px solid var(--b); border-radius: 3px;
-  padding: 8px 0; font-size: 9px; font-weight: 700;
-  cursor: pointer; min-width: 0;
-  transition: background 0.15s, color 0.15s;
+/* ---------- PRESETS RAISE (grille modale) ---------- */
+.raise-presets-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 6px; margin: 10px 0;
 }
-.pot-preset-btn:active { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+.raise-preset-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 10px 4px; min-height: 50px;
+  border-radius: 8px; border: 1.5px solid rgba(230,81,0,0.35);
+  background: rgba(230,81,0,0.10); color: #ffcc80;
+  font-family: inherit; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.raise-preset-btn:active { transform: scale(0.96); }
+.raise-preset-btn.active {
+  background: rgba(230,81,0,0.32); border-color: var(--gold); color: var(--gold);
+}
+.preset-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+.preset-amount { font-size: 9px; font-weight: 600; opacity: 0.75; }
 
 /* ---------- BOUTONS TOP-BAR ---------- */
 .reset-btn {
