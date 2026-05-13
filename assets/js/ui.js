@@ -271,7 +271,6 @@ export function renderActionPanel() {
     ? `<div class="action-panel-info"><strong>${player.pos}</strong> — To call : <strong>${fmtAmount(toCall)}</strong>${heroCardsHtml}</div>`
     : `<div class="action-panel-info"><strong>${player.pos}</strong> — No bet to call${heroCardsHtml}</div>`;
 
-  const showRaiseInput = state.raiseShownFor === idx;
   const showAllinInput = state.allinShownFor === idx;
 
   let buttonsHtml = '<div class="action-row-inline three">';
@@ -292,18 +291,6 @@ const minRaise = state.currentBet === 0 ? state.bb : (state.currentBet + (state.
 const minDisplay = state.stackUnit === 'bb' ? (minRaise / state.bb).toFixed(1) + ' bb' : fmtChips(Math.round(minRaise));
 buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><div>${state.currentBet > 0 ? 'Raise' : 'Bet'}</div><div style="font-size:9px;color:var(--color-text-secondary);">min ${minDisplay}</div></button></div>`;  buttonsHtml += `<div class="action-row-inline"><button class="action-btn-inline action-back-inline" id="ap-back">← Back</button><button class="action-btn-inline action-allin" id="ap-allin">All-in</button></div>`;
 
-  let raiseInputHtml = '';
-  if (showRaiseInput) {
-    const isPostflop = state.step.endsWith('-bet') && state.step !== 'preflop';
-    let sliderHtml = '';
-    if (isPostflop) {
-      const currentChips = state.raiseInput ? (state.stackUnit === 'bb' ? parseFloat(state.raiseInput) * state.bb : parseFloat(state.raiseInput)) : 0;
-      const pct = state.pot > 0 ? Math.min(200, Math.round((currentChips / state.pot) * 100)) : 0;
-     sliderHtml = `<div class="pot-slider-wrap"><div class="pot-slider-header"><span>% du pot</span><span class="pot-slider-value" id="ap-slider-val">${pct}%</span></div><input type="range" min="0" max="200" step="5" value="${pct}" class="pot-slider" id="ap-pot-slider"></div>`;
-    }
-    raiseInputHtml = `<div class="raise-inline-row"><input type="number" inputmode="decimal" class="raise-input-inline" id="ap-raise-input" value="${state.raiseInput || ''}" placeholder="Total" autofocus><div class="unit-toggle-mini"><button id="ap-unit-chips" class="${state.stackUnit==='chips'?'active':''}">Tks</button><button id="ap-unit-bb" class="${state.stackUnit==='bb'?'active':''}">BB</button></div><button class="raise-confirm" id="ap-raise-ok">OK</button></div>${state.raiseError ? `<div class="raise-error">${state.raiseError}</div>` : ''}${sliderHtml}`;
-  }
-
   let allinInputHtml = '';
   if (showAllinInput) {
     if (player.stackKnown && player.stack !== null) {
@@ -313,7 +300,7 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
     }
   }
 
-  panel.innerHTML = infoHtml + buttonsHtml + raiseInputHtml + allinInputHtml;
+  panel.innerHTML = infoHtml + buttonsHtml + allinInputHtml;
   root.appendChild(panel);
 
   const panelRect = panel.getBoundingClientRect();
@@ -333,9 +320,8 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
   if (checkBtn) checkBtn.addEventListener('click', () => doAction(player, 'check'));
   if (callBtn)  callBtn.addEventListener('click', () => doAction(player, 'call'));
   if (raiseBtn) raiseBtn.addEventListener('click', () => {
-    state.raiseShownFor = idx; state.allinShownFor = null;
-    state.raiseInput = ''; state.raiseError = null; render();
-    setTimeout(() => { const i = $('ap-raise-input'); if (i) i.focus(); }, 50);
+    state.allinShownFor = null; state.raiseInput = ''; state.raiseError = null;
+    openRaiseModal(player, idx);
   });
   if (allinBtn) allinBtn.addEventListener('click', () => {
     state.allinShownFor = idx; state.raiseShownFor = null; state.allinInput = ''; render();
@@ -343,51 +329,6 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
   });
   if (backBtn2) backBtn2.addEventListener('click', goBackOneAction);
 
-  if (showRaiseInput) {
-    $('ap-unit-chips').addEventListener('click', () => {
-      if (state.stackUnit === 'bb') { const v = parseFloat($('ap-raise-input').value); if (v > 0) { state.raiseInput = String(Math.round(v * state.bb)); } }
-      state.stackUnit = 'chips'; render();
-    });
-    $('ap-unit-bb').addEventListener('click', () => {
-      if (state.stackUnit === 'chips') { const v = parseFloat($('ap-raise-input').value); if (v > 0) { state.raiseInput = String(+(v / state.bb).toFixed(2)); } }
-      state.stackUnit = 'bb'; render();
-    });
-    $('ap-raise-input').addEventListener('input', (e) => {
-      state.raiseInput = e.target.value;
-      if (state.raiseError) { state.raiseError = null; const errEl = document.querySelector('.raise-error'); if (errEl) errEl.remove(); }
-      const slider = $('ap-pot-slider'), sliderVal = $('ap-slider-val');
-      if (slider && sliderVal && state.pot > 0) {
-        const chips = state.stackUnit === 'bb' ? (parseFloat(e.target.value) || 0) * state.bb : (parseFloat(e.target.value) || 0);
-        const pct = Math.min(200, Math.max(0, Math.round((chips / state.pot) * 100)));
-        slider.value = pct; sliderVal.textContent = pct + '%';
-      }
-    });
-    const slider = $('ap-pot-slider');
-    if (slider) {
-      slider.addEventListener('input', (e) => {
-        const pct = parseInt(e.target.value) || 0;
-        $('ap-slider-val').textContent = pct + '%';
-        const chips = (state.pot * pct) / 100;
-        const display = state.stackUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
-        state.raiseInput = String(display); $('ap-raise-input').value = display;
-      });
-      
-    }
-    $('ap-raise-ok').addEventListener('click', () => {
-      const v = parseFloat($('ap-raise-input').value);
-      if (!v || v <= 0) { state.raiseError = 'Saisis un montant supérieur à 0.'; render(); return; }
-      const chips = state.stackUnit === 'bb' ? v * state.bb : v;
-      const br0 = state.betRound;
-      let minTotal, reason;
-      if (state.currentBet === 0) { minTotal = state.bb; reason = 'Mise minimale : 1 BB'; }
-      else { minTotal = state.currentBet + (br0.lastRaiseSize || state.bb); reason = 'Sur-relance minimale : dernière mise + dernier incrément'; }
-      const stackCap = (player.stackKnown && player.stack !== null) ? (player.stack + player.currentBet) : Infinity;
-      const enforcedMin = Math.min(minTotal, stackCap);
-      if (chips < enforcedMin) { state.raiseError = `${reason}<br><strong>Min : ${fmtAmount(enforcedMin)}</strong>`; render(); return; }
-      state.raiseShownFor = null; state.raiseInput = ''; state.raiseError = null;
-      doAction(player, 'raise', chips);
-    });
-  }
   if (showAllinInput) {
     if (player.stackKnown && player.stack !== null) {
       $('ap-allin-ok').addEventListener('click', () => {
@@ -424,6 +365,148 @@ export function showModal(html, opts = {}) {
 }
 
 export function closeModal() { $('modal-root').innerHTML = ''; }
+
+/* ================================================================
+   MODALE RAISE / BET
+   ================================================================ */
+
+export function openRaiseModal(player, idx) {
+  const isPostflop = state.step.endsWith('-bet') && state.step !== 'preflop';
+  const label = state.currentBet > 0 ? 'Raise' : 'Bet';
+  const minRaise = state.currentBet === 0 ? state.bb : (state.currentBet + (state.betRound?.lastRaiseSize || state.bb));
+
+  const presets = isPostflop
+    ? [{ l: '¼ pot', pct: 25 }, { l: '⅓ pot', pct: 33 }, { l: '½ pot', pct: 50 },
+       { l: '⅔ pot', pct: 66 }, { l: '¾ pot', pct: 75 }, { l: 'Pot', pct: 100 }]
+      .map(p => ({ label: p.l, chips: Math.round(state.pot * p.pct / 100) }))
+    : [2, 2.5, 3, 3.5, 4, 5]
+      .map(m => ({ label: `${m}BB`, chips: Math.round(m * state.bb) }));
+
+  const fmtP = chips => state.stackUnit === 'bb'
+    ? `${(chips / state.bb).toFixed(1)} BB`
+    : `${fmtChips(chips)}`;
+
+  const initChips = minRaise;
+  const initVal = state.stackUnit === 'bb' ? (initChips / state.bb).toFixed(1) : Math.round(initChips);
+  const initPct = isPostflop && state.pot > 0 ? Math.min(200, Math.round((initChips / state.pot) * 100)) : 0;
+
+  const sliderHtml = isPostflop
+    ? `<div class="pot-slider-wrap"><div class="pot-slider-header"><span>% of pot</span><span class="pot-slider-value" id="rm-slider-val">${initPct}%</span></div><input type="range" min="0" max="200" step="5" value="${initPct}" class="pot-slider" id="rm-pot-slider"></div>`
+    : '';
+
+  const presetsHtml = presets.map(p =>
+    `<button class="raise-preset-btn" data-chips="${p.chips}"><span class="preset-label">${p.label}</span></button>`
+  ).join('');
+
+  const html = `
+    <div class="modal-title">${label}</div>
+    <div class="modal-subtitle">Min : ${fmtAmount(minRaise)}</div>
+    <div class="raise-presets-grid">${presetsHtml}</div>
+    <div class="stack-input-wrap" style="margin:10px 0 4px;">
+      <input type="number" inputmode="decimal" class="stack-input" id="rm-input" value="${initVal}" placeholder="Total" autofocus>
+      <div class="unit-toggle-mini">
+        <button id="rm-unit-bb" class="${state.stackUnit === 'bb' ? 'active' : ''}">BB</button>
+        <button id="rm-unit-chips" class="${state.stackUnit === 'chips' ? 'active' : ''}">Tks</button>
+      </div>
+    </div>
+    ${sliderHtml}
+    <div class="raise-error" id="rm-error" style="display:none;margin-top:6px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="rm-cancel">Cancel</button>
+      <button class="btn btn-primary" id="rm-ok">${label}</button>
+    </div>`;
+
+  showModal(html, {
+    onMount: () => {
+      const errEl = $('rm-error');
+
+      const inputToChips = () => {
+        const v = parseFloat($('rm-input').value) || 0;
+        return state.stackUnit === 'bb' ? v * state.bb : v;
+      };
+
+      const syncSlider = (chips) => {
+        const slider = $('rm-pot-slider'), sliderVal = $('rm-slider-val');
+        if (!slider || !state.pot) return;
+        const pct = Math.min(200, Math.max(0, Math.round((chips / state.pot) * 100)));
+        slider.value = pct; sliderVal.textContent = pct + '%';
+      };
+
+      const highlightPreset = (chips) => {
+        document.querySelectorAll('.raise-preset-btn').forEach(b =>
+          b.classList.toggle('active', parseFloat(b.dataset.chips) === chips));
+      };
+
+      const updatePresetAmounts = () => {
+        document.querySelectorAll('.raise-preset-btn').forEach(b => {
+          b.querySelector('.preset-amount').textContent = fmtP(parseFloat(b.dataset.chips));
+        });
+      };
+
+      // Preset buttons
+      document.querySelectorAll('.raise-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const chips = parseFloat(btn.dataset.chips);
+          const display = state.stackUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
+          $('rm-input').value = display;
+          highlightPreset(chips); syncSlider(chips);
+          errEl.style.display = 'none';
+        });
+      });
+
+      // Unit toggle
+      const switchUnit = (newUnit) => {
+        if (state.stackUnit === newUnit) return;
+        const v = parseFloat($('rm-input').value);
+        if (v > 0) $('rm-input').value = newUnit === 'bb' ? +(v / state.bb).toFixed(2) : Math.round(v * state.bb);
+        state.stackUnit = newUnit;
+        $('rm-unit-bb').classList.toggle('active', newUnit === 'bb');
+        $('rm-unit-chips').classList.toggle('active', newUnit === 'chips');
+        updatePresetAmounts(); syncSlider(inputToChips()); render();
+      };
+      $('rm-unit-bb').addEventListener('click', () => switchUnit('bb'));
+      $('rm-unit-chips').addEventListener('click', () => switchUnit('chips'));
+
+      // Manual input
+      $('rm-input').addEventListener('input', () => {
+        errEl.style.display = 'none';
+        const chips = inputToChips();
+        syncSlider(chips); highlightPreset(chips);
+      });
+
+      // Slider
+      const slider = $('rm-pot-slider');
+      if (slider) {
+        slider.addEventListener('input', (e) => {
+          const chips = (state.pot * parseInt(e.target.value)) / 100;
+          $('rm-slider-val').textContent = e.target.value + '%';
+          const display = state.stackUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
+          $('rm-input').value = display; highlightPreset(chips); errEl.style.display = 'none';
+        });
+      }
+
+      // Confirm
+      $('rm-ok').addEventListener('click', () => {
+        const v = parseFloat($('rm-input').value);
+        if (!v || v <= 0) { errEl.innerHTML = 'Enter an amount > 0'; errEl.style.display = 'block'; return; }
+        const chips = inputToChips();
+        const br0 = state.betRound;
+        let minTotal, reason;
+        if (state.currentBet === 0) { minTotal = state.bb; reason = 'Min bet: 1 BB'; }
+        else { minTotal = state.currentBet + (br0?.lastRaiseSize || state.bb); reason = 'Min raise'; }
+        const stackCap = (player.stackKnown && player.stack !== null) ? (player.stack + player.currentBet) : Infinity;
+        const enforcedMin = Math.min(minTotal, stackCap);
+        if (chips < enforcedMin) { errEl.innerHTML = `${reason} — Min: ${fmtAmount(enforcedMin)}`; errEl.style.display = 'block'; return; }
+        state.raiseInput = ''; state.raiseError = null;
+        closeModal(); doAction(player, 'raise', chips);
+      });
+      bindEnterToValidate('rm-input', 'rm-ok');
+
+      // Cancel
+      $('rm-cancel').addEventListener('click', closeModal);
+    }
+  });
+}
 
 /* ================================================================
    INTERACTIONS SIÈGES

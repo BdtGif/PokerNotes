@@ -151,7 +151,7 @@ let _lastVPHeight = window.innerHeight;
 window.addEventListener('resize', () => {
   const ae = document.activeElement;
   const typing = ae && ae.tagName === 'INPUT' &&
-    (ae.id === 'ap-raise-input' || ae.id === 'ap-allin-input' ||
+    (ae.id === 'rm-input' || ae.id === 'ap-allin-input' ||
      ae.id === 'sb-input' || ae.id === 'bb-input' || ae.id === 'ante-input');
   const heightDelta = Math.abs(window.innerHeight - _lastVPHeight);
   _lastVPHeight = window.innerHeight;
