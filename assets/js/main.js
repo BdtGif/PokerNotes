@@ -67,6 +67,12 @@ $('ante-input').addEventListener('input', (e) => {
 
 /* ---------- Unit switch ---------- */
 $('unit-switch').addEventListener('click', () => {
+  if (state.raiseInput) {
+    const v = parseFloat(state.raiseInput);
+    if (v > 0) state.raiseInput = state.stackUnit === 'bb'
+      ? String(Math.round(v * state.bb))
+      : String(+(v / state.bb).toFixed(2));
+  }
   state.stackUnit = state.stackUnit === 'chips' ? 'bb' : 'chips';
   render();
 });

@@ -40,7 +40,6 @@ export const state = {
   pot: 0,
   currentBet: 0,
   betRound: null,
-  raiseUnit: 'chips',
   raiseInput: '',
   allinInput: '',
   raiseShownFor: null,

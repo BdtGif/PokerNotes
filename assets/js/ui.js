@@ -297,11 +297,11 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
     const isPostflop = state.step.endsWith('-bet') && state.step !== 'preflop';
     let sliderHtml = '';
     if (isPostflop) {
-      const currentChips = state.raiseInput ? (state.raiseUnit === 'bb' ? parseFloat(state.raiseInput) * state.bb : parseFloat(state.raiseInput)) : 0;
+      const currentChips = state.raiseInput ? (state.stackUnit === 'bb' ? parseFloat(state.raiseInput) * state.bb : parseFloat(state.raiseInput)) : 0;
       const pct = state.pot > 0 ? Math.min(200, Math.round((currentChips / state.pot) * 100)) : 0;
      sliderHtml = `<div class="pot-slider-wrap"><div class="pot-slider-header"><span>% du pot</span><span class="pot-slider-value" id="ap-slider-val">${pct}%</span></div><input type="range" min="0" max="200" step="5" value="${pct}" class="pot-slider" id="ap-pot-slider"></div>`;
     }
-    raiseInputHtml = `<div class="raise-inline-row"><input type="number" inputmode="decimal" class="raise-input-inline" id="ap-raise-input" value="${state.raiseInput || ''}" placeholder="Total" autofocus><div class="unit-toggle-mini"><button id="ap-unit-chips" class="${state.raiseUnit==='chips'?'active':''}">Tks</button><button id="ap-unit-bb" class="${state.raiseUnit==='bb'?'active':''}">BB</button></div><button class="raise-confirm" id="ap-raise-ok">OK</button></div>${state.raiseError ? `<div class="raise-error">${state.raiseError}</div>` : ''}${sliderHtml}`;
+    raiseInputHtml = `<div class="raise-inline-row"><input type="number" inputmode="decimal" class="raise-input-inline" id="ap-raise-input" value="${state.raiseInput || ''}" placeholder="Total" autofocus><div class="unit-toggle-mini"><button id="ap-unit-chips" class="${state.stackUnit==='chips'?'active':''}">Tks</button><button id="ap-unit-bb" class="${state.stackUnit==='bb'?'active':''}">BB</button></div><button class="raise-confirm" id="ap-raise-ok">OK</button></div>${state.raiseError ? `<div class="raise-error">${state.raiseError}</div>` : ''}${sliderHtml}`;
   }
 
   let allinInputHtml = '';
@@ -344,14 +344,20 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
   if (backBtn2) backBtn2.addEventListener('click', goBackOneAction);
 
   if (showRaiseInput) {
-    $('ap-unit-chips').addEventListener('click', () => { state.raiseUnit = 'chips'; render(); });
-    $('ap-unit-bb').addEventListener('click',   () => { state.raiseUnit = 'bb';    render(); });
+    $('ap-unit-chips').addEventListener('click', () => {
+      if (state.stackUnit === 'bb') { const v = parseFloat($('ap-raise-input').value); if (v > 0) { state.raiseInput = String(Math.round(v * state.bb)); } }
+      state.stackUnit = 'chips'; render();
+    });
+    $('ap-unit-bb').addEventListener('click', () => {
+      if (state.stackUnit === 'chips') { const v = parseFloat($('ap-raise-input').value); if (v > 0) { state.raiseInput = String(+(v / state.bb).toFixed(2)); } }
+      state.stackUnit = 'bb'; render();
+    });
     $('ap-raise-input').addEventListener('input', (e) => {
       state.raiseInput = e.target.value;
       if (state.raiseError) { state.raiseError = null; const errEl = document.querySelector('.raise-error'); if (errEl) errEl.remove(); }
       const slider = $('ap-pot-slider'), sliderVal = $('ap-slider-val');
       if (slider && sliderVal && state.pot > 0) {
-        const chips = state.raiseUnit === 'bb' ? (parseFloat(e.target.value) || 0) * state.bb : (parseFloat(e.target.value) || 0);
+        const chips = state.stackUnit === 'bb' ? (parseFloat(e.target.value) || 0) * state.bb : (parseFloat(e.target.value) || 0);
         const pct = Math.min(200, Math.max(0, Math.round((chips / state.pot) * 100)));
         slider.value = pct; sliderVal.textContent = pct + '%';
       }
@@ -362,7 +368,7 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
         const pct = parseInt(e.target.value) || 0;
         $('ap-slider-val').textContent = pct + '%';
         const chips = (state.pot * pct) / 100;
-        const display = state.raiseUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
+        const display = state.stackUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
         state.raiseInput = String(display); $('ap-raise-input').value = display;
       });
       
@@ -370,7 +376,7 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
     $('ap-raise-ok').addEventListener('click', () => {
       const v = parseFloat($('ap-raise-input').value);
       if (!v || v <= 0) { state.raiseError = 'Saisis un montant supérieur à 0.'; render(); return; }
-      const chips = state.raiseUnit === 'bb' ? v * state.bb : v;
+      const chips = state.stackUnit === 'bb' ? v * state.bb : v;
       const br0 = state.betRound;
       let minTotal, reason;
       if (state.currentBet === 0) { minTotal = state.bb; reason = 'Mise minimale : 1 BB'; }
@@ -463,8 +469,14 @@ export function openHeroSetupModal(idx) {
       buildCardPicker(selectedCards, 2, (cards) => { selectedCards = cards; updateOk(); });
       $('hero-stack').addEventListener('input', updateOk);
       bindEnterToValidate('hero-stack', 'hero-ok');
-      $('hero-unit-bb').addEventListener('click', () => { stackInputUnit = 'bb'; state.stackUnit = 'bb'; $('hero-unit-bb').classList.add('active'); $('hero-unit-chips').classList.remove('active'); render(); });
-      $('hero-unit-chips').addEventListener('click', () => { stackInputUnit = 'chips'; state.stackUnit = 'chips'; $('hero-unit-chips').classList.add('active'); $('hero-unit-bb').classList.remove('active'); render(); });
+      $('hero-unit-bb').addEventListener('click', () => {
+        if (stackInputUnit === 'chips') { const v = parseFloat($('hero-stack').value); if (v > 0) $('hero-stack').value = +(v / state.bb).toFixed(2); }
+        stackInputUnit = 'bb'; state.stackUnit = 'bb'; $('hero-unit-bb').classList.add('active'); $('hero-unit-chips').classList.remove('active'); render();
+      });
+      $('hero-unit-chips').addEventListener('click', () => {
+        if (stackInputUnit === 'bb') { const v = parseFloat($('hero-stack').value); if (v > 0) $('hero-stack').value = Math.round(v * state.bb); }
+        stackInputUnit = 'chips'; state.stackUnit = 'chips'; $('hero-unit-chips').classList.add('active'); $('hero-unit-bb').classList.remove('active'); render();
+      });
       $('hero-cancel').addEventListener('click', closeModal);
       $('hero-ok').addEventListener('click', () => {
         const stackNum = parseFloat($('hero-stack').value);
@@ -479,7 +491,8 @@ export function openHeroSetupModal(idx) {
 
 export function openOpponentSetupModal(idx) {
   const p = state.players[idx];
-  let stackVal = p.stackKnown ? p.stack : '', stackInputUnit = 'bb';
+  let stackInputUnit = state.stackUnit === 'chips' ? 'chips' : 'bb';
+  let stackVal = p.stackKnown && p.stack > 0 ? (stackInputUnit === 'bb' ? p.stack / state.bb : p.stack) : '';
   const html = `
     <div class="modal-title">Joueur en ${p.pos}</div>
     <div class="modal-subtitle">Saisis son stack pour l'inclure dans la main</div>
@@ -487,8 +500,8 @@ export function openOpponentSetupModal(idx) {
     <div class="stack-input-wrap">
       <input type="number" inputmode="decimal" class="stack-input" id="op-stack" value="${stackVal}" placeholder="Stack..." autofocus>
       <div class="unit-toggle-mini">
-        <button id="op-unit-bb" class="active">BB</button>
-        <button id="op-unit-chips">Tks</button>
+        <button id="op-unit-bb" class="${stackInputUnit === 'bb' ? 'active' : ''}">BB</button>
+        <button id="op-unit-chips" class="${stackInputUnit === 'chips' ? 'active' : ''}">Tks</button>
       </div>
     </div>
     <div style="display:flex;gap:6px;margin:8px 0;">
@@ -501,8 +514,14 @@ export function openOpponentSetupModal(idx) {
     </div>`;
   showModal(html, {
     onMount: () => {
-      $('op-unit-bb').addEventListener('click', () => { stackInputUnit = 'bb'; $('op-unit-bb').classList.add('active'); $('op-unit-chips').classList.remove('active'); });
-      $('op-unit-chips').addEventListener('click', () => { stackInputUnit = 'chips'; $('op-unit-chips').classList.add('active'); $('op-unit-bb').classList.remove('active'); });
+      $('op-unit-bb').addEventListener('click', () => {
+        if (stackInputUnit === 'chips') { const v = parseFloat($('op-stack').value); if (v > 0) $('op-stack').value = +(v / state.bb).toFixed(2); }
+        stackInputUnit = 'bb'; state.stackUnit = 'bb'; $('op-unit-bb').classList.add('active'); $('op-unit-chips').classList.remove('active'); render();
+      });
+      $('op-unit-chips').addEventListener('click', () => {
+        if (stackInputUnit === 'bb') { const v = parseFloat($('op-stack').value); if (v > 0) $('op-stack').value = Math.round(v * state.bb); }
+        stackInputUnit = 'chips'; state.stackUnit = 'chips'; $('op-unit-chips').classList.add('active'); $('op-unit-bb').classList.remove('active'); render();
+      });
       $('op-nc').addEventListener('click', () => { p.inHand = true; p.stack = null; p.stackKnown = false; closeModal(); render(); });
       $('op-stack').addEventListener('input', () => {});
       bindEnterToValidate('op-stack', 'op-ok');
