@@ -73,8 +73,18 @@ $('unit-switch').addEventListener('click', () => {
 
 /* ---------- Validate / Back / Reset ---------- */
 $('validate-setup-btn').addEventListener('click', () => {
-  if (state.step === 'setup') startPreflop();
-  else if (state.step === 'result') {
+  if (state.step === 'setup') {
+    if (state.players[state.heroIdx].cards.length < 2) {
+      showModal(`
+        <div class="modal-title">Missing cards</div>
+        <div class="modal-subtitle">Select your 2 hole cards before starting the hand.</div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="missing-cards-ok">OK</button>
+        </div>`, { onMount: () => $('missing-cards-ok').addEventListener('click', closeModal) });
+      return;
+    }
+    startPreflop();
+  } else if (state.step === 'result') {
     rebuildPlayers();
     render();
   }

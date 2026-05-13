@@ -217,7 +217,7 @@ export function renderBottomBar() {
   if (state.step === 'setup') {
     validateBtn.style.display = 'block';
     const inHandCount = state.players.filter(p => p.inHand).length;
-    validateBtn.disabled = !(state.heroIdx !== null && inHandCount >= 2 && state.players[state.heroIdx].cards.length === 2);
+    validateBtn.disabled = !(state.heroIdx !== null && inHandCount >= 2);
     validateBtn.textContent = 'Confirm';
   } else if (state.step === 'result') {
     validateBtn.style.display = 'block';
