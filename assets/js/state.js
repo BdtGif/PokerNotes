@@ -33,7 +33,7 @@ export const state = {
   ante: 0,
   bbAnteMode: false,
   numPlayers: 6,
-  stackUnit: 'chips',
+  stackUnit: 'bb',
   heroIdx: null,
   players: [],
   board: [],

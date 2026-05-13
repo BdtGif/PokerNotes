@@ -436,7 +436,9 @@ export function onSeatClick(idx) {
 
 export function openHeroSetupModal(idx) {
   const p = state.players[idx];
-  let stackVal = p.stack || '', selectedCards = [...p.cards], stackInputUnit = 'bb';
+  let stackInputUnit = state.stackUnit === 'chips' ? 'chips' : 'bb';
+  let stackVal = p.stack > 0 ? (stackInputUnit === 'bb' ? p.stack / state.bb : p.stack) : '';
+  let selectedCards = [...p.cards];
   const html = `
     <div class="modal-title">Your position : ${p.pos}</div>
     <div class="modal-subtitle">Enter your stack and select 2 cards</div>
@@ -444,8 +446,8 @@ export function openHeroSetupModal(idx) {
     <div class="stack-input-wrap">
       <input type="number" inputmode="decimal" class="stack-input" id="hero-stack" value="${stackVal}" placeholder="Ex: 100" autofocus>
       <div class="unit-toggle-mini">
-        <button id="hero-unit-bb" class="active">BB</button>
-        <button id="hero-unit-chips">Tks</button>
+        <button id="hero-unit-bb" class="${stackInputUnit === 'bb' ? 'active' : ''}">BB</button>
+        <button id="hero-unit-chips" class="${stackInputUnit === 'chips' ? 'active' : ''}">Tks</button>
       </div>
     </div>
     <label class="label" style="display:block;margin:12px 0 6px;">Your hand - Select 2 cards</label>
@@ -457,12 +459,12 @@ export function openHeroSetupModal(idx) {
     </div>`;
   showModal(html, {
     onMount: () => {
-      const updateOk = () => { $('hero-ok').disabled = !(selectedCards.length === 2 && parseFloat($('hero-stack').value) > 0); };
+      const updateOk = () => { $('hero-ok').disabled = !(parseFloat($('hero-stack').value) > 0); };
       buildCardPicker(selectedCards, 2, (cards) => { selectedCards = cards; updateOk(); });
       $('hero-stack').addEventListener('input', updateOk);
       bindEnterToValidate('hero-stack', 'hero-ok');
-      $('hero-unit-bb').addEventListener('click', () => { stackInputUnit = 'bb'; $('hero-unit-bb').classList.add('active'); $('hero-unit-chips').classList.remove('active'); });
-      $('hero-unit-chips').addEventListener('click', () => { stackInputUnit = 'chips'; $('hero-unit-chips').classList.add('active'); $('hero-unit-bb').classList.remove('active'); });
+      $('hero-unit-bb').addEventListener('click', () => { stackInputUnit = 'bb'; state.stackUnit = 'bb'; $('hero-unit-bb').classList.add('active'); $('hero-unit-chips').classList.remove('active'); render(); });
+      $('hero-unit-chips').addEventListener('click', () => { stackInputUnit = 'chips'; state.stackUnit = 'chips'; $('hero-unit-chips').classList.add('active'); $('hero-unit-bb').classList.remove('active'); render(); });
       $('hero-cancel').addEventListener('click', closeModal);
       $('hero-ok').addEventListener('click', () => {
         const stackNum = parseFloat($('hero-stack').value);
