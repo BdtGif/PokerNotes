@@ -1,0 +1,690 @@
+/* ui.js — Rendu DOM, modales et interactions joueurs
+ *
+ * NOTE dépendance circulaire : ui.js ↔ hand.js (voir hand.js pour explication).
+ * Les imports de hand.js sont utilisés uniquement dans les corps de fonctions.
+ */
+
+import { state, SUITS, RANKS } from './state.js';
+import { $, fmtChips, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
+import { postBlindsForPreview } from './player.js';
+import { loadPseudo } from './storage.js';
+// Imports circulaires — safe à runtime (voir note ci-dessus)
+import { doAction, goBackOneAction, buildActionQueue, finishHand } from './hand.js';
+
+/* ================================================================
+   HELPERS DE POSITIONNEMENT
+   ================================================================ */
+
+/** Calcule les coordonnées écran de chaque siège autour de la table. */
+export function getSeatScreenPositions() {
+  const tableArea = $('table-area');
+  const rect = tableArea.getBoundingClientRect();
+  const cx = rect.width / 2, cy = rect.height / 2;
+  const rx = Math.min(rect.width * 0.42, 280);
+  const ry = Math.min(rect.height * 0.40, 165);
+  const n = state.numPlayers;
+  const positions = {};
+  let anchorAngle, slotForPlayer;
+  if (state.heroIdx === null) {
+    anchorAngle = Math.PI * 0.35;
+    slotForPlayer = (idx) => idx;
+  } else {
+    anchorAngle = Math.PI / 2;
+    slotForPlayer = (idx) => (idx - state.heroIdx + n) % n;
+  }
+  const step = (Math.PI * 2) / n;
+  for (let i = 0; i < n; i++) {
+    const slot = slotForPlayer(i);
+    const angle = anchorAngle + slot * step;
+    positions[i] = { x: cx + Math.cos(angle) * rx, y: cy + Math.sin(angle) * ry, angle };
+  }
+  return positions;
+}
+
+/* ================================================================
+   RENDUS
+   ================================================================ */
+
+export function renderSeats() {
+  const container = $('seats-container');
+  container.innerHTML = '';
+  const positions = getSeatScreenPositions();
+  const tableArea = $('table-area');
+  const rect = tableArea.getBoundingClientRect();
+  const cx = rect.width / 2, cy = rect.height / 2;
+  const actingIdx = (state.betRound && (state.step.endsWith('-bet') || state.step === 'preflop'))
+    ? state.betRound.queue[state.betRound.qIndex] : null;
+  const pseudo = loadPseudo();
+
+  state.players.forEach((p, i) => {
+    const { x, y } = positions[i];
+    const seat = document.createElement('div');
+    seat.className = 'seat';
+    seat.style.left = x + 'px'; seat.style.top = y + 'px';
+
+    if (p.idx === state.heroIdx) seat.classList.add('is-hero');
+    if (state.heroIdx !== null && p.inHand && p.idx !== state.heroIdx) seat.classList.add('is-active-in-hand');
+    if (state.heroIdx !== null && !p.inHand) seat.classList.add('is-out');
+    if (p.folded) seat.classList.add('is-folded');
+    if (p.allin)  seat.classList.add('is-allin');
+    if (actingIdx === p.idx) seat.classList.add('is-acting');
+    if (p.result === 'win')  seat.classList.add('is-winner');
+    if (p.result === 'tie')  seat.classList.add('is-tie');
+    if (p.result === 'lose') seat.classList.add('is-loser');
+
+    if (p.cards.length > 0) {
+      const cardsEl = document.createElement('div');
+      cardsEl.className = 'seat-cards';
+      p.cards.forEach(c => {
+        const lbl = cardLabel(c);
+        const mc = document.createElement('div');
+        mc.className = 'mini-card ' + lbl.cssClass;
+        mc.innerHTML = cardInnerHtml(c);
+        cardsEl.appendChild(mc);
+      });
+      seat.appendChild(cardsEl);
+    }
+
+    const posEl = document.createElement('div');
+    posEl.className = 'seat-pos';
+    if (p.idx === state.heroIdx && pseudo) {
+      const label = pseudo.length > 6 ? pseudo.slice(0, 6) : pseudo;
+      posEl.textContent = label;
+      posEl.style.fontSize = label.length > 3 ? '9px' : '13px';
+    } else {
+      posEl.textContent = p.pos;
+    }
+    seat.appendChild(posEl);
+
+    if (p.inHand && p.stackKnown && p.stack !== null) {
+      const stackEl = document.createElement('div');
+      stackEl.className = 'seat-stack'; stackEl.textContent = fmtStack(p.stack);
+      seat.appendChild(stackEl);
+    } else if (p.inHand && !p.stackKnown) {
+      const stackEl = document.createElement('div');
+      stackEl.className = 'seat-stack'; stackEl.textContent = 'N/C';
+      seat.appendChild(stackEl);
+    }
+
+    if (p.handValueLabel) {
+      const hv = document.createElement('div');
+      hv.className = 'seat-handvalue'; hv.textContent = p.handValueLabel;
+      seat.appendChild(hv);
+    }
+
+    container.appendChild(seat);
+
+    // Chip de mise
+    let chipLabel = null;
+    if (state.step === 'setup' && p.postedBlind) {
+      chipLabel = fmtAmount(p.currentBet);
+    } else if (p.currentBet > 0 && (state.step.endsWith('-bet') || state.step === 'preflop')) {
+      chipLabel = fmtAmount(p.currentBet);
+    }
+    if (chipLabel) {
+      const chip = document.createElement('div');
+      chip.className = 'seat-bet-chip';
+      if (p.postedBlind) chip.classList.add('is-blind');
+      const dx = cx - x, dy = cy - y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const offset = 70;
+      chip.style.left = (x + (dx / dist) * offset) + 'px';
+      chip.style.top  = (y + (dy / dist) * offset) + 'px';
+      chip.style.position = 'absolute';
+      chip.textContent = chipLabel;
+      container.appendChild(chip);
+    }
+
+    // Bouton dealer
+    if (p.pos === 'BU') {
+      const db = document.createElement('div');
+      db.className = 'dealer-btn';
+      const dx = cx - x, dy = cy - y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const ux = dx / dist, uy = dy / dist;
+      const lx = uy, ly = -ux;
+      db.style.left = (x + ux * 56 + lx * 36) + 'px';
+      db.style.top  = (y + uy * 56 + ly * 36) + 'px';
+      db.textContent = 'D';
+      container.appendChild(db);
+    }
+
+    seat.addEventListener('click', () => onSeatClick(p.idx));
+  });
+}
+
+export function renderBoard() {
+  const board = $('board');
+  if (state.step === 'setup' || state.step === 'preflop') { board.style.display = 'none'; return; }
+  board.style.display = 'flex'; board.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const c = state.board[i];
+    const div = document.createElement('div');
+    if (c) {
+      const lbl = cardLabel(c);
+      div.className = 'board-card ' + lbl.cssClass;
+      div.innerHTML = cardInnerHtml(c);
+    } else { div.className = 'board-card empty'; }
+    board.appendChild(div);
+  }
+}
+
+export function renderPot() {
+  const pd = $('pot-display'), wd = $('winner-display'), ad = $('ante-display');
+  if (state.step === 'result' && state.winners.length > 0) {
+    wd.style.display = 'block';
+    wd.classList.toggle('tie', state.winners.length > 1);
+    if (state.winners.length === 1) {
+      const w = state.winners[0];
+      wd.innerHTML = `<strong>${w.pos}</strong> gagne : <strong>${fmtAmount(w.share)}</strong>`;
+    } else {
+      wd.innerHTML = state.winners.map(w => `<strong>${w.pos}</strong> gagne : <strong>${fmtAmount(w.share)}</strong>`).join('<br>');
+    }
+  } else { wd.style.display = 'none'; }
+  pd.style.display = 'block';
+  pd.textContent = 'Pot : ' + fmtAmount(state.pot);
+  // Afficher l'ante UNIQUEMENT en préflop et setup
+  if (state.anteEnabled && (state.step === 'preflop' || state.step === 'setup')) {
+    const ante = getEffectiveAnte();
+    if (ante > 0) { ad.style.display = 'block'; ad.textContent = 'Ante : ' + fmtAmount(ante); }
+    else { ad.style.display = 'none'; }
+  } else { ad.style.display = 'none'; }
+}
+
+export function renderStepIndicator() {
+  const map = {
+    'setup': 'Set up the hand',
+    'preflop': 'Preflop',
+    'flop-cards': 'Flop — Select 3 cards',
+    'flop-bet': 'Flop — Bet',
+    'turn-cards': 'Turn — Select 1 card',
+    'turn-bet': 'Turn — Bet',
+    'river-cards': 'River — Select 1 card',
+    'river-bet': 'River — Bet',
+    'showdown': 'Showdown — Opponent cards',
+    'result': 'Result'
+  };
+  $('step-indicator').textContent = map[state.step] || '';
+}
+
+export function renderBottomBar() {
+  const validateBtn = $('validate-setup-btn'), backBtn = $('back-btn');
+  if (state.step === 'setup') {
+    backBtn.disabled = state.heroIdx === null && state.players.every(p => !p.inHand);
+    backBtn.textContent = '← Back';
+  } else { backBtn.disabled = false; backBtn.textContent = '← Back'; }
+
+  if (state.step === 'setup') {
+    validateBtn.style.display = 'block';
+    const inHandCount = state.players.filter(p => p.inHand).length;
+    validateBtn.disabled = !(state.heroIdx !== null && inHandCount >= 2 && state.players[state.heroIdx].cards.length === 2);
+    validateBtn.textContent = 'Confirm';
+  } else if (state.step === 'result') {
+    validateBtn.style.display = 'block';
+    validateBtn.disabled = false;
+    validateBtn.textContent = 'New Hand';
+  } else { validateBtn.style.display = 'none'; }
+
+  $('unit-switch').classList.toggle('bb', state.stackUnit === 'bb');
+  $('sb-input').value = state.sb;
+  $('bb-input').value = state.bb;
+
+  const anteToggle = $('ante-toggle'), bbanteToggle = $('bbante-toggle'), anteInput = $('ante-input');
+  anteToggle.classList.toggle('active', state.anteEnabled);
+  anteToggle.textContent = state.anteEnabled ? 'ON' : 'OFF';
+  bbanteToggle.classList.toggle('active', state.bbAnteMode);
+  if (state.anteEnabled) {
+    if (state.bbAnteMode) { anteInput.disabled = true; anteInput.value = ''; anteInput.placeholder = '= 1 BB'; }
+    else { anteInput.disabled = false; anteInput.value = state.ante || ''; anteInput.placeholder = 'val'; }
+  } else { anteInput.disabled = true; anteInput.value = ''; anteInput.placeholder = '—'; }
+}
+
+export function renderActionPanel() {
+  // Ne pas re-rendre pendant la saisie dans l'input raise/all-in (clavier Android)
+  const ae = document.activeElement;
+  if (ae && ae.tagName === 'INPUT' && (ae.id === 'ap-raise-input' || ae.id === 'ap-allin-input')) return;
+
+  const root = $('action-panel-root');
+  root.innerHTML = '';
+  if (!state.betRound) return;
+  if (!state.step.endsWith('-bet') && state.step !== 'preflop') return;
+  const br = state.betRound;
+  if (br.qIndex >= br.queue.length) return;
+  const idx = br.queue[br.qIndex];
+  const player = state.players[idx];
+  if (!player || player.folded || !player.inHand) return;
+
+  const positions = getSeatScreenPositions();
+  const pos = positions[idx];
+  const tableArea = $('table-area');
+  const rect = tableArea.getBoundingClientRect();
+  const panel = document.createElement('div');
+  panel.className = 'action-panel';
+
+  const toCall = state.currentBet - player.currentBet;
+  const canCheck = toCall === 0;
+  const heroCardsHtml = player.idx === state.heroIdx
+    ? '<div style="display:flex;justify-content:center;gap:3px;margin-top:4px;">' + player.cards.map(c => { const l = cardLabel(c); return `<div class="mini-card ${l.cssClass}">${cardInnerHtml(c)}</div>`; }).join('') + '</div>'
+    : '';
+
+  let infoHtml = toCall > 0
+    ? `<div class="action-panel-info"><strong>${player.pos}</strong> — To call : <strong>${fmtAmount(toCall)}</strong>${heroCardsHtml}</div>`
+    : `<div class="action-panel-info"><strong>${player.pos}</strong> — No bet to call${heroCardsHtml}</div>`;
+
+  const showRaiseInput = state.raiseShownFor === idx;
+  const showAllinInput = state.allinShownFor === idx;
+
+  let buttonsHtml = '<div class="action-row-inline three">';
+// Affiche Fold s'il y a une mise à suivre (canCheck = false)
+// En préflop : uniquement s'il y a une mise à suivre (relance après blinds)
+// Postflop : toujours s'il y a une mise à suivre
+if (!canCheck) {
+  buttonsHtml += `<button class="action-btn-inline action-fold" id="ap-fold">Fold</button>`;
+}
+if (canCheck) {
+  buttonsHtml += `<button class="action-btn-inline action-check" id="ap-check">Check</button>`;
+} else {
+  let callDisplay = toCall, callIsAllin = false;
+  if (player.stackKnown && player.stack !== null && toCall >= player.stack) { callDisplay = player.stack; callIsAllin = true; }
+  buttonsHtml += `<button class="action-btn-inline action-call" id="ap-call">${callIsAllin ? 'Call all-in ' + fmtAmount(callDisplay) : 'Call ' + fmtAmount(callDisplay)}</button>`;
+}
+const minRaise = state.currentBet === 0 ? state.bb : (state.currentBet + (state.betRound?.lastRaiseSize || state.bb));
+const minDisplay = state.stackUnit === 'bb' ? (minRaise / state.bb).toFixed(1) + ' bb' : fmtChips(Math.round(minRaise));
+buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><div>${state.currentBet > 0 ? 'Raise' : 'Bet'}</div><div style="font-size:9px;color:var(--color-text-secondary);">min ${minDisplay}</div></button></div>`;  buttonsHtml += `<div class="action-row-inline"><button class="action-btn-inline action-back-inline" id="ap-back">← Back</button><button class="action-btn-inline action-allin" id="ap-allin">All-in</button></div>`;
+
+  let raiseInputHtml = '';
+  if (showRaiseInput) {
+    const isPostflop = state.step.endsWith('-bet') && state.step !== 'preflop';
+    let sliderHtml = '';
+    if (isPostflop) {
+      const currentChips = state.raiseInput ? (state.raiseUnit === 'bb' ? parseFloat(state.raiseInput) * state.bb : parseFloat(state.raiseInput)) : 0;
+      const pct = state.pot > 0 ? Math.min(200, Math.round((currentChips / state.pot) * 100)) : 0;
+     sliderHtml = `<div class="pot-slider-wrap"><div class="pot-slider-header"><span>% du pot</span><span class="pot-slider-value" id="ap-slider-val">${pct}%</span></div><input type="range" min="0" max="200" step="5" value="${pct}" class="pot-slider" id="ap-pot-slider"></div>`;
+    }
+    raiseInputHtml = `<div class="raise-inline-row"><input type="number" inputmode="decimal" class="raise-input-inline" id="ap-raise-input" value="${state.raiseInput || ''}" placeholder="Total" autofocus><div class="unit-toggle-mini"><button id="ap-unit-chips" class="${state.raiseUnit==='chips'?'active':''}">Tks</button><button id="ap-unit-bb" class="${state.raiseUnit==='bb'?'active':''}">BB</button></div><button class="raise-confirm" id="ap-raise-ok">OK</button></div>${state.raiseError ? `<div class="raise-error">${state.raiseError}</div>` : ''}${sliderHtml}`;
+  }
+
+  let allinInputHtml = '';
+  if (showAllinInput) {
+    if (player.stackKnown && player.stack !== null) {
+      allinInputHtml = `<div class="allin-inline-row"><div style="flex:1;font-size:11px;color:#fecaca;text-align:center;">All-in : ${fmtAmount(player.stack)}</div><button class="raise-confirm" id="ap-allin-ok" style="background:#b91c1c">OK</button></div>`;
+    } else {
+      allinInputHtml = `<div class="allin-inline-row"><input type="number" inputmode="decimal" class="raise-input-inline" id="ap-allin-input" value="${state.allinInput || ''}" placeholder="Total all-in (BB)" autofocus step="0.5"><div style="font-size:11px;font-weight:700;color:var(--gold);padding:0 4px;">BB</div><button class="raise-confirm" id="ap-allin-ok" style="background:#b91c1c">OK</button></div>`;
+    }
+  }
+
+  panel.innerHTML = infoHtml + buttonsHtml + raiseInputHtml + allinInputHtml;
+  root.appendChild(panel);
+
+  const panelRect = panel.getBoundingClientRect();
+  const cosA = Math.cos(pos.angle);
+  const seatRadius = 48, margin = 16;
+  let px, py;
+  if (cosA >= 0) { px = pos.x + seatRadius + margin; py = pos.y - panelRect.height / 2; }
+  else { px = pos.x - seatRadius - margin - panelRect.width; py = pos.y - panelRect.height / 2; }
+  px = Math.max(8, Math.min(rect.width - panelRect.width - 8, px));
+  py = Math.max(8, Math.min(rect.height - panelRect.height - 8, py));
+  panel.style.left = px + 'px'; panel.style.top = py + 'px';
+
+  // Event listeners des boutons d'action
+  const foldBtn  = $('ap-fold'), checkBtn = $('ap-check'), callBtn = $('ap-call');
+  const raiseBtn = $('ap-raise'), allinBtn = $('ap-allin'), backBtn2 = $('ap-back');
+  if (foldBtn)  foldBtn.addEventListener('click', () => doAction(player, 'fold'));
+  if (checkBtn) checkBtn.addEventListener('click', () => doAction(player, 'check'));
+  if (callBtn)  callBtn.addEventListener('click', () => doAction(player, 'call'));
+  if (raiseBtn) raiseBtn.addEventListener('click', () => {
+    state.raiseShownFor = idx; state.allinShownFor = null;
+    state.raiseInput = ''; state.raiseError = null; render();
+    setTimeout(() => { const i = $('ap-raise-input'); if (i) i.focus(); }, 50);
+  });
+  if (allinBtn) allinBtn.addEventListener('click', () => {
+    state.allinShownFor = idx; state.raiseShownFor = null; state.allinInput = ''; render();
+    if (!player.stackKnown) setTimeout(() => { const i = $('ap-allin-input'); if (i) i.focus(); }, 50);
+  });
+  if (backBtn2) backBtn2.addEventListener('click', goBackOneAction);
+
+  if (showRaiseInput) {
+    $('ap-unit-chips').addEventListener('click', () => { state.raiseUnit = 'chips'; render(); });
+    $('ap-unit-bb').addEventListener('click',   () => { state.raiseUnit = 'bb';    render(); });
+    $('ap-raise-input').addEventListener('input', (e) => {
+      state.raiseInput = e.target.value;
+      if (state.raiseError) { state.raiseError = null; const errEl = document.querySelector('.raise-error'); if (errEl) errEl.remove(); }
+      const slider = $('ap-pot-slider'), sliderVal = $('ap-slider-val');
+      if (slider && sliderVal && state.pot > 0) {
+        const chips = state.raiseUnit === 'bb' ? (parseFloat(e.target.value) || 0) * state.bb : (parseFloat(e.target.value) || 0);
+        const pct = Math.min(200, Math.max(0, Math.round((chips / state.pot) * 100)));
+        slider.value = pct; sliderVal.textContent = pct + '%';
+      }
+    });
+    const slider = $('ap-pot-slider');
+    if (slider) {
+      slider.addEventListener('input', (e) => {
+        const pct = parseInt(e.target.value) || 0;
+        $('ap-slider-val').textContent = pct + '%';
+        const chips = (state.pot * pct) / 100;
+        const display = state.raiseUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
+        state.raiseInput = String(display); $('ap-raise-input').value = display;
+      });
+      
+    }
+    $('ap-raise-ok').addEventListener('click', () => {
+      const v = parseFloat($('ap-raise-input').value);
+      if (!v || v <= 0) { state.raiseError = 'Saisis un montant supérieur à 0.'; render(); return; }
+      const chips = state.raiseUnit === 'bb' ? v * state.bb : v;
+      const br0 = state.betRound;
+      let minTotal, reason;
+      if (state.currentBet === 0) { minTotal = state.bb; reason = 'Mise minimale : 1 BB'; }
+      else { minTotal = state.currentBet + (br0.lastRaiseSize || state.bb); reason = 'Sur-relance minimale : dernière mise + dernier incrément'; }
+      const stackCap = (player.stackKnown && player.stack !== null) ? (player.stack + player.currentBet) : Infinity;
+      const enforcedMin = Math.min(minTotal, stackCap);
+      if (chips < enforcedMin) { state.raiseError = `${reason}<br><strong>Min : ${fmtAmount(enforcedMin)}</strong>`; render(); return; }
+      state.raiseShownFor = null; state.raiseInput = ''; state.raiseError = null;
+      doAction(player, 'raise', chips);
+    });
+  }
+  if (showAllinInput) {
+    if (player.stackKnown && player.stack !== null) {
+      $('ap-allin-ok').addEventListener('click', () => {
+        const totalBet = player.stack + player.currentBet;
+        state.allinShownFor = null; doAction(player, 'allin', totalBet);
+      });
+    } else {
+      $('ap-allin-input').addEventListener('input', (e) => { state.allinInput = e.target.value; });
+      $('ap-allin-ok').addEventListener('click', () => {
+        const v = parseFloat($('ap-allin-input').value);
+        if (!v || v <= 0) return;
+        state.allinShownFor = null; state.allinInput = '';
+        doAction(player, 'allin', v * state.bb);
+      });
+    }
+  }
+}
+
+/** Point d'entrée du rendu : met à jour tout le DOM. */
+export function render() {
+  renderSeats(); renderBoard(); renderPot();
+  renderStepIndicator(); renderBottomBar(); renderActionPanel();
+}
+
+/* ================================================================
+   SYSTÈME DE MODALES
+   ================================================================ */
+
+/** @param {string} html @param {{onMount?:Function}} [opts] */
+export function showModal(html, opts = {}) {
+  const root = $('modal-root');
+  root.innerHTML = `<div class="overlay"><div class="modal">${html}</div></div>`;
+  if (opts.onMount) opts.onMount();
+}
+
+export function closeModal() { $('modal-root').innerHTML = ''; }
+
+/* ================================================================
+   INTERACTIONS SIÈGES
+   ================================================================ */
+
+/** @param {number} idx */
+export function onSeatClick(idx) {
+  const p = state.players[idx];
+  if (state.step === 'setup') {
+    if (state.heroIdx === null || idx === state.heroIdx) openHeroSetupModal(idx);
+    else openOpponentSetupModal(idx);
+  } else if (state.step === 'showdown') {
+    if (p.inHand && !p.folded && p.idx !== state.heroIdx) openShowdownCardModal(idx);
+  }
+}
+
+export function openHeroSetupModal(idx) {
+  const p = state.players[idx];
+  let stackVal = p.stack || '', selectedCards = [...p.cards], stackInputUnit = 'bb';
+  const html = `
+    <div class="modal-title">Your position : ${p.pos}</div>
+    <div class="modal-subtitle">Enter your stack and select 2 cards</div>
+    <label class="label" style="display:block;margin-bottom:6px;">Your stack</label>
+    <div class="stack-input-wrap">
+      <input type="number" inputmode="decimal" class="stack-input" id="hero-stack" value="${stackVal}" placeholder="Ex: 100" autofocus>
+      <div class="unit-toggle-mini">
+        <button id="hero-unit-bb" class="active">BB</button>
+        <button id="hero-unit-chips">Tks</button>
+      </div>
+    </div>
+    <label class="label" style="display:block;margin:12px 0 6px;">Your hand - Select 2 cards</label>
+    <div class="card-picker-status" id="cp-status"></div>
+    <div class="card-picker" id="card-picker"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="hero-cancel">Cancel</button>
+      <button class="btn btn-primary" id="hero-ok" disabled>Confirm</button>
+    </div>`;
+  showModal(html, {
+    onMount: () => {
+      const updateOk = () => { $('hero-ok').disabled = !(selectedCards.length === 2 && parseFloat($('hero-stack').value) > 0); };
+      buildCardPicker(selectedCards, 2, (cards) => { selectedCards = cards; updateOk(); });
+      $('hero-stack').addEventListener('input', updateOk);
+      bindEnterToValidate('hero-stack', 'hero-ok');
+      $('hero-unit-bb').addEventListener('click', () => { stackInputUnit = 'bb'; $('hero-unit-bb').classList.add('active'); $('hero-unit-chips').classList.remove('active'); });
+      $('hero-unit-chips').addEventListener('click', () => { stackInputUnit = 'chips'; $('hero-unit-chips').classList.add('active'); $('hero-unit-bb').classList.remove('active'); });
+      $('hero-cancel').addEventListener('click', closeModal);
+      $('hero-ok').addEventListener('click', () => {
+        const stackNum = parseFloat($('hero-stack').value);
+        if (!stackNum || stackNum <= 0) return;
+        p.stack = stackInputUnit === 'bb' ? stackNum * state.bb : stackNum;
+        p.stackKnown = true; p.cards = selectedCards; p.inHand = true;
+        state.heroIdx = idx; closeModal(); render();
+      });
+    }
+  });
+}
+
+export function openOpponentSetupModal(idx) {
+  const p = state.players[idx];
+  let stackVal = p.stackKnown ? p.stack : '', stackInputUnit = 'bb';
+  const html = `
+    <div class="modal-title">Joueur en ${p.pos}</div>
+    <div class="modal-subtitle">Saisis son stack pour l'inclure dans la main</div>
+    <label class="label" style="display:block;margin-bottom:6px;">Stack du joueur</label>
+    <div class="stack-input-wrap">
+      <input type="number" inputmode="decimal" class="stack-input" id="op-stack" value="${stackVal}" placeholder="Stack..." autofocus>
+      <div class="unit-toggle-mini">
+        <button id="op-unit-bb" class="active">BB</button>
+        <button id="op-unit-chips">Tks</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin:8px 0;">
+      <button class="btn btn-secondary" id="op-nc" style="flex:1;padding:10px;">Stack N/C</button>
+      ${p.inHand ? '<button class="btn btn-secondary" id="op-remove" style="flex:1;padding:10px;background:#4b1c1c;color:#fca5a5;border-color:#7f1d1d;">Retirer de la main</button>' : ''}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="op-cancel">Cancel</button>
+      <button class="btn btn-primary" id="op-ok">Confirm</button>
+    </div>`;
+  showModal(html, {
+    onMount: () => {
+      $('op-unit-bb').addEventListener('click', () => { stackInputUnit = 'bb'; $('op-unit-bb').classList.add('active'); $('op-unit-chips').classList.remove('active'); });
+      $('op-unit-chips').addEventListener('click', () => { stackInputUnit = 'chips'; $('op-unit-chips').classList.add('active'); $('op-unit-bb').classList.remove('active'); });
+      $('op-nc').addEventListener('click', () => { p.inHand = true; p.stack = null; p.stackKnown = false; closeModal(); render(); });
+      $('op-stack').addEventListener('input', () => {});
+      bindEnterToValidate('op-stack', 'op-ok');
+      const removeBtn = $('op-remove');
+      if (removeBtn) removeBtn.addEventListener('click', () => { p.inHand = false; p.stack = null; p.stackKnown = false; closeModal(); render(); });
+      $('op-cancel').addEventListener('click', closeModal);
+      $('op-ok').addEventListener('click', () => {
+        const v = parseFloat($('op-stack').value);
+        if (!v || v <= 0) return;
+        p.inHand = true; p.stack = stackInputUnit === 'bb' ? v * state.bb : v; p.stackKnown = true;
+        closeModal(); render();
+      });
+    }
+  });
+}
+
+/* ================================================================
+   SÉLECTEUR DE CARTES
+   ================================================================ */
+
+/**
+ * Affiche le picker de cartes dans un conteneur existant.
+ * @param {string[]} currentSelection
+ * @param {number} maxSelect
+ * @param {Function} onChange
+ * @param {boolean} [allowFewer=false]
+ */
+export function buildCardPicker(currentSelection, maxSelect, onChange, allowFewer = false) {
+  const root = $('card-picker'), status = $('cp-status');
+  let selection = [...currentSelection];
+  const refreshStatus = () => {
+    status.textContent = allowFewer
+      ? `${selection.length}/${maxSelect} card(s) - you can select 0, 1 or ${maxSelect}`
+      : `${selection.length}/${maxSelect} card(s) selected`;
+  };
+  const render2 = () => {
+    root.innerHTML = '';
+    SUITS.forEach((suit) => {
+      const row = document.createElement('div');
+      row.className = 'suit-row';
+      const lbl = document.createElement('div');
+      lbl.className = 'suit-label ' + suit.cssClass;
+      lbl.textContent = suit.sym;
+      row.appendChild(lbl);
+      RANKS.forEach((r) => {
+        const card = r + suit.code;
+        const cell = document.createElement('div');
+        cell.className = 'card-cell ' + suit.cssClass;
+        cell.textContent = r;
+        const isSelected = selection.includes(card);
+        const usedElsewhere = !isSelected && isCardUsed(card);
+        if (isSelected) cell.classList.add('selected');
+        if (usedElsewhere) cell.classList.add('disabled');
+        cell.addEventListener('click', () => {
+          if (usedElsewhere) return;
+          if (isSelected) { selection = selection.filter(c => c !== card); }
+          else {
+            if (selection.length >= maxSelect) { if (maxSelect === 1) selection = [card]; else return; }
+            else selection.push(card);
+          }
+          render2(); onChange(selection);
+        });
+        row.appendChild(cell);
+      });
+      root.appendChild(row);
+    });
+    refreshStatus();
+  };
+  render2(); refreshStatus();
+}
+
+/* ================================================================
+   SÉLECTION DES CARTES DU BOARD
+   ================================================================ */
+
+/**
+ * Ouvre la modale de saisie des cartes du board pour une street donnée.
+ * @param {string} street 'flop'|'turn'|'river'
+ * @param {boolean} [autoMode=false] Enchaîne automatiquement les streets (all-in runout)
+ */
+export function promptCardSelection(street, autoMode = false) {
+  const count = street === 'flop' ? 3 : 1;
+  let selected = [];
+  const html = `
+    <div class="modal-title">${street.toUpperCase()}</div>
+    <div class="modal-subtitle">Select ${count} card${count > 1 ? 's' : ''} from the board${autoMode ? ' - players all-in' : ''}</div>
+    <div class="card-picker-status" id="cp-status"></div>
+    <div class="card-picker" id="card-picker"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="cards-back">← Back</button>
+      <button class="btn btn-primary" id="cards-ok" disabled>Confirm</button>
+    </div>`;
+  showModal(html, {
+    onMount: () => {
+      buildCardPicker([], count, (cards) => {
+        selected = cards;
+        $('cards-ok').disabled = cards.length !== count;
+      });
+      $('cards-back').addEventListener('click', () => {
+        closeModal();
+        if (street === 'flop') {
+          state.players.forEach(p => { p.currentBet = 0; p.totalBet = 0; p.folded = false; p.allin = false; });
+          state.pot = 0; state.currentBet = 0; state.step = 'setup';
+          postBlindsForPreview(); render();
+        } else {
+          const prevMap = { 'turn': 'flop', 'river': 'turn' };
+          const prev = prevMap[street];
+          if (prev === 'flop')  state.board = state.board.slice(0, 0);
+          else if (prev === 'turn') state.board = state.board.slice(0, 3);
+          state.players.forEach(p => { p.currentBet = 0; });
+          state.currentBet = 0; state.step = prev + '-bet';
+          state.betRound = { street: prev, queue: buildActionQueue(prev), qIndex: 0, lastRaiserIdx: null, lastRaiseSize: state.bb, history: [] };
+          render();
+        }
+      });
+      $('cards-ok').addEventListener('click', () => {
+        state.board.push(...selected); closeModal();
+        if (autoMode) {
+          if (street === 'flop')       { state.step = 'turn-cards';  render(); promptCardSelection('turn',  true); }
+          else if (street === 'turn')  { state.step = 'river-cards'; render(); promptCardSelection('river', true); }
+          else { state.step = 'showdown'; render(); promptShowdown(); }
+        } else {
+          state.step = street + '-bet';
+          state.betRound = { street, queue: buildActionQueue(street), qIndex: 0, lastRaiserIdx: null, lastRaiseSize: state.bb, history: [] };
+          render();
+        }
+      });
+    }
+  });
+}
+
+/* ================================================================
+   SHOWDOWN
+   ================================================================ */
+
+export function promptShowdown() {
+  const opponents = getActivePlayers().filter(p => p.idx !== state.heroIdx);
+  if (opponents.length === 0) { finishHand(); return; }
+  showdownIterator(opponents, 0);
+}
+
+export function showdownIterator(list, i) {
+  if (i >= list.length) { finishHand(); return; }
+  openShowdownCardModal(list[i].idx, () => showdownIterator(list, i + 1));
+}
+
+export function openShowdownCardModal(idx, onDone) {
+  const p = state.players[idx];
+  let selected = [...p.cards];
+  const html = `
+    <div class="modal-title">Cards — ${p.pos}</div>
+    <div class="modal-subtitle">0, 1 or 2 cards (N/C if unknown)</div>
+    <div class="card-picker-status" id="cp-status"></div>
+    <div class="card-picker" id="card-picker"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="show-nc">N/C</button>
+      <button class="btn btn-primary" id="show-ok">Confirm</button>
+    </div>`;
+  showModal(html, {
+    onMount: () => {
+      buildCardPicker(selected, 2, (cards) => { selected = cards; }, true);
+      $('show-nc').addEventListener('click', () => { p.cards = []; closeModal(); render(); if (onDone) onDone(); });
+      $('show-ok').addEventListener('click', () => { p.cards = selected; closeModal(); render(); if (onDone) onDone(); });
+    }
+  });
+}
+
+/* ================================================================
+   UTILITAIRE CLAVIER ANDROID
+   ================================================================ */
+
+/**
+ * Sur Android, le clavier numérique affiche une touche "Entrée".
+ * Ce binding la connecte au bouton de validation et ferme le clavier.
+ * @param {string} inputId
+ * @param {string|null} validateBtnId
+ */
+export function bindEnterToValidate(inputId, validateBtnId) {
+  const input = $(inputId);
+  if (!input) return;
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (validateBtnId) { const btn = $(validateBtnId); if (btn && !btn.disabled) btn.click(); }
+    input.blur();
+  });
+}

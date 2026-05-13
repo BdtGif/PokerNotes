@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Poker Tracker V10.2</title>
+<meta name="description" content="Poker Tracker — outil léger pour suivre une main de poker en direct (blinds, antes, actions, showdown).">
+<meta name="theme-color" content="#07090b">
+<link rel="stylesheet" href="assets/css/main.css">
+<link rel="stylesheet" href="assets/css/layout.css">
+<link rel="stylesheet" href="assets/css/buttons.css">
+<link rel="stylesheet" href="assets/css/card.css">
+<link rel="stylesheet" href="assets/css/form.css">
+<link rel="stylesheet" href="assets/css/utils.css">
+<link rel="stylesheet" href="assets/css/history.css">
+</head>
+<body>
+<div id="app">
+  <div class="top-bar">
+    <button class="history-btn" id="history-btn">Histo</button>
+    <button class="reset-btn" id="reset-btn">Reset</button>
+  </div>
+
+  <div class="step-indicator" id="step-indicator">Étape 1 — Configurer la table</div>
+
+  <header class="header">
+    <div class="header-left">
+      <div class="blinds-block">
+        <span class="label">Blinds</span>
+        <div class="blinds-inputs">
+          <input type="number" inputmode="numeric" class="blind-input" id="sb-input" value="25" min="0" aria-label="">
+          <span class="slash">/</span>
+          <input type="number" inputmode="numeric" class="blind-input" id="bb-input" value="50" min="1" aria-label="">
+        </div>
+      </div>
+      <div class="ante-block">
+        <span class="label">Ante</span>
+        <div class="ante-inputs">
+          <button class="toggle-pill" id="ante-toggle">OFF</button>
+          <input type="number" inputmode="numeric" class="ante-input" id="ante-input" value="" placeholder="—" disabled aria-label="">
+          <button class="toggle-pill" id="bbante-toggle">BB/Ante</button>
+        </div>
+      </div>
+    </div>
+    <div class="players-block">
+      <span class="label">Players</span>
+      <div class="player-count-control">
+        <button class="pc-btn" id="pc-minus">−</button>
+        <span class="pc-value" id="pc-value">6</span>
+        <button class="pc-btn" id="pc-plus">+</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="table-area" id="table-area">
+    <svg class="table-svg" id="table-svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <radialGradient id="feltGrad" cx="50%" cy="40%" r="60%">
+          <stop offset="0%" stop-color="#0e3d26"/>
+          <stop offset="60%" stop-color="#0b2c1c"/>
+          <stop offset="100%" stop-color="#071c10"/>
+        </radialGradient>
+        <linearGradient id="railGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#3d1e0c"/>
+          <stop offset="100%" stop-color="#160904"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="300" cy="200" rx="280" ry="170" fill="url(#railGrad)" stroke="#0f0503" stroke-width="2"/>
+      <ellipse cx="300" cy="200" rx="260" ry="150" fill="url(#feltGrad)" stroke="#061510" stroke-width="2"/>
+      <ellipse cx="300" cy="200" rx="220" ry="115" fill="none" stroke="rgba(255,255,255,0.035)" stroke-width="1"/>
+    </svg>
+    <div id="seats-container"></div>
+    <div class="center-info" id="center-info">
+      <div class="pot-display" id="pot-display">Pot : 0</div>
+      <div class="ante-display" id="ante-display" style="display:none;"></div>
+      <div class="winner-display" id="winner-display" style="display:none;"></div>
+      <div class="board" id="board" style="display:none;"></div>
+    </div>
+    <div id="action-panel-root"></div>
+
+    <div class="unit-switch-wrap">
+      <div class="unit-switch" id="unit-switch">
+        <div class="unit-switch-thumb"></div>
+        <div class="unit-switch-labels">
+          <span>Tks</span>
+          <span>bb</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn btn-back-bottom" id="back-btn">← Retour</button>
+    <button class="btn btn-primary" id="validate-setup-btn" disabled>Valider</button>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+
+<script type="module" src="assets/js/main.js"></script>
+</body>
+</html>
