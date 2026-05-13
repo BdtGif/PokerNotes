@@ -13,22 +13,22 @@ function fmtHistAmt(n, bb) {
 /** @param {Object} hand @returns {string} */
 export function handResultSummary(hand) {
   if (!hand.winners || hand.winners.length === 0) return 'Main incomplète';
-  
+
   const heroPlayer = hand.heroIdx !== null && hand.heroIdx !== undefined ? hand.players?.[hand.heroIdx] : null;
-  
+
   if (hand.winners.length > 1) {
     const winnerNames = hand.winners.map(w => {
       return heroPlayer && heroPlayer.pos === w.pos ? `Hero (${w.pos})` : w.pos;
     });
     return 'Égalité : ' + winnerNames.join(' / ');
   }
-  
+
   const w = hand.winners[0];
   const wp = (hand.players || []).find(p => p.pos === w.pos);
-  
+
   // Affiche "Hero (position)" si le gagnant est Hero, sinon juste la position
   const displayName = heroPlayer && heroPlayer.pos === w.pos ? `Hero (${w.pos})` : w.pos;
-  
+
   const label = wp && wp.handValueLabel ? ' — ' + wp.handValueLabel : '';
   return displayName + ' wins' + label + ' (' + fmtHistAmt(w.share, hand.bb) + ')';
 }
@@ -109,7 +109,7 @@ export function showHistoryModal() {
         // Déclare heroPlayer ET heroResult au début
        const heroPlayer = hand.heroIdx !== null && hand.heroIdx !== undefined ? hand.players?.[hand.heroIdx] : null;
         const heroResult = heroPlayer ? heroPlayer.result : null;
-        
+
         // Détermine la couleur en fonction du résultat de Hero
         const outcomeClass = !hand.winners || hand.winners.length === 0
   ? 'history-item--incomplete'
@@ -156,9 +156,9 @@ export function showHistoryModal() {
       <span class="history-pseudo-icon">✎</span>
     </button>
     <div class="history-toolbar">
-      <button class="btn btn-secondary hist-btn${!pseudo && count > 0 ? ' hist-btn--blocked' : ''}" id="hist-export"${count === 0 ? ' disabled' : ''}>↓ Exporter JSON</button>
+      <button class="btn btn-secondary hist-btn${!pseudo && count > 0 ? ' hist-btn--blocked' : ''}" id="hist-export"${count === 0 ? ' disabled' : ''}>↓ Exporter</button>
       <label class="btn btn-secondary hist-btn history-import-label">
-        ↑ Importer JSON
+        ↑ Importer
         <input type="file" id="hist-import-input" accept=".json,application/json" style="display:none">
       </label>
     </div>
@@ -244,15 +244,15 @@ export function showHistoryModal() {
       const bbBtn = toggle.querySelector('.bb-btn');
       const contentDiv = document.querySelector(`[data-hand-id="${handId}"].history-hand-content`);
       const hand = hands.find(h => h.id === handId);
-      
+
       if (!hand) return;
-      
+
       chipsBtn.addEventListener('click', () => {
         chipsBtn.classList.add('active');
         bbBtn.classList.remove('active');
         contentDiv.innerHTML = _handStreetsHtml(hand, 'chips');
       });
-      
+
       bbBtn.addEventListener('click', () => {
         bbBtn.classList.add('active');
         chipsBtn.classList.remove('active');
