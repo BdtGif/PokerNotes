@@ -394,6 +394,12 @@ export function openRaiseModal(player, idx) {
   const html = `
     <div class="modal-title">${label}</div>
     <div class="modal-subtitle">Min : ${fmtAmount(minRaise)}${stackCap ? ' · Max : ' + fmtAmount(stackCap) : ''}</div>
+    <div class="gauge-presets">
+      <button class="gauge-preset-btn" data-chips="${Math.round(2.5*state.bb)}">2.5BB</button>
+      <button class="gauge-preset-btn" data-chips="${Math.round(5*state.bb)}">5BB</button>
+      <button class="gauge-preset-btn" data-chips="${Math.round(10*state.bb)}">10BB</button>
+      <button class="gauge-preset-btn gauge-preset-allin" data-chips="${gaugeMax}">ALL-IN</button>
+    </div>
     <div class="raise-gauge-wrap">
       <div class="raise-gauge-val" id="rm-gauge-val">${fmtDisplay(initChips)}</div>
       <input type="range" class="raise-gauge" id="rm-gauge"
@@ -432,11 +438,23 @@ export function openRaiseModal(player, idx) {
         $('rm-input').value = state.stackUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
       };
 
+      // Presets
+      document.querySelectorAll('#modal-raise .gauge-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const chips = Math.max(gaugeMin, Math.min(gaugeMax, parseFloat(btn.dataset.chips)));
+          setGaugeFromChips(chips); setInputFromChips(chips);
+          document.querySelectorAll('#modal-raise .gauge-preset-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          errEl.style.display = 'none';
+        });
+      });
+
       // Jauge → input
       gauge.addEventListener('input', () => {
         const chips = parseFloat(gauge.value);
         gaugeValEl.textContent = fmtDisplay(chips);
         setInputFromChips(chips);
+        document.querySelectorAll('#modal-raise .gauge-preset-btn').forEach(b => b.classList.remove('active'));
         errEl.style.display = 'none';
       });
 
@@ -543,12 +561,16 @@ export function openHeroSetupModal(idx) {
         gaugeVal.textContent = fmtHero(parseFloat(gauge.value));
       };
 
+      const applyChips = (chips) => {
+        const c = Math.max(hGaugeMin, Math.min(hGaugeMax, chips));
+        gauge.value = c; gaugeVal.textContent = fmtHero(c);
+        $('hero-stack').value = stackInputUnit === 'bb' ? (c / state.bb).toFixed(1) : Math.round(c);
+        updateOk();
+      };
+
       // Jauge → input
       gauge.addEventListener('input', () => {
-        const chips = parseFloat(gauge.value);
-        gaugeVal.textContent = fmtHero(chips);
-        $('hero-stack').value = stackInputUnit === 'bb' ? (chips / state.bb).toFixed(1) : Math.round(chips);
-        updateOk();
+        applyChips(parseFloat(gauge.value));
       });
 
       // Input → jauge
@@ -591,12 +613,25 @@ export function openHeroSetupModal(idx) {
 export function openOpponentSetupModal(idx) {
   const p = state.players[idx];
   let stackInputUnit = state.stackUnit === 'chips' ? 'chips' : 'bb';
-  let stackVal = p.stackKnown && p.stack > 0 ? (stackInputUnit === 'bb' ? p.stack / state.bb : p.stack) : '';
+  const opGaugeMin = state.bb;
+  const opGaugeMax = 500 * state.bb;
+  const opGaugeStep = Math.max(1, Math.round(state.bb / 2));
+  const initChips = p.stackKnown && p.stack > 0 ? p.stack : opGaugeMin;
+  const stackVal = p.stackKnown && p.stack > 0
+    ? (stackInputUnit === 'bb' ? (p.stack / state.bb).toFixed(1) : Math.round(p.stack))
+    : '';
+  const fmtOp = chips => stackInputUnit === 'bb'
+    ? `${(chips / state.bb).toFixed(1)} BB`
+    : fmtChips(Math.round(chips));
   const html = `
     <div class="modal-title">Joueur en ${p.pos}</div>
     <div class="modal-subtitle">Saisis son stack pour l'inclure dans la main</div>
-    <label class="label" style="display:block;margin-bottom:6px;">Stack du joueur</label>
-    <div class="stack-input-wrap">
+    <div class="raise-gauge-wrap">
+      <div class="raise-gauge-val" id="op-gauge-val">${stackVal ? fmtOp(initChips) : '—'}</div>
+      <input type="range" class="raise-gauge" id="op-gauge"
+        min="${opGaugeMin}" max="${opGaugeMax}" step="${opGaugeStep}" value="${initChips}">
+    </div>
+    <div class="stack-input-wrap" style="margin:4px 0 8px;">
       <input type="number" inputmode="decimal" class="stack-input" id="op-stack" value="${stackVal}" placeholder="Stack..." autofocus>
       <div class="unit-toggle-mini">
         <button id="op-unit-bb" class="${stackInputUnit === 'bb' ? 'active' : ''}">BB</button>
@@ -613,16 +648,46 @@ export function openOpponentSetupModal(idx) {
     </div>`;
   showModal(html, { id: 'modal-opponent-setup',
     onMount: () => {
+      const gauge = $('op-gauge'), gaugeVal = $('op-gauge-val');
+
+      const syncGaugeDisplay = () => {
+        gaugeVal.textContent = fmtOp(parseFloat(gauge.value));
+      };
+
+      const applyChips = (chips) => {
+        const c = Math.max(opGaugeMin, Math.min(opGaugeMax, chips));
+        gauge.value = c; gaugeVal.textContent = fmtOp(c);
+        $('op-stack').value = stackInputUnit === 'bb' ? (c / state.bb).toFixed(1) : Math.round(c);
+      };
+
+      // Jauge → input
+      gauge.addEventListener('input', () => {
+        applyChips(parseFloat(gauge.value));
+      });
+
+      // Input → jauge
+      $('op-stack').addEventListener('input', () => {
+        const v = parseFloat($('op-stack').value) || 0;
+        const chips = stackInputUnit === 'bb' ? v * state.bb : v;
+        if (chips > 0) {
+          gauge.value = Math.max(opGaugeMin, Math.min(opGaugeMax, chips));
+          gaugeVal.textContent = fmtOp(parseFloat(gauge.value));
+        } else {
+          gaugeVal.textContent = '—';
+        }
+      });
+
       $('op-unit-bb').addEventListener('click', () => {
         if (stackInputUnit === 'chips') { const v = parseFloat($('op-stack').value); if (v > 0) $('op-stack').value = +(v / state.bb).toFixed(2); }
-        stackInputUnit = 'bb'; state.stackUnit = 'bb'; $('op-unit-bb').classList.add('active'); $('op-unit-chips').classList.remove('active'); render();
+        stackInputUnit = 'bb'; state.stackUnit = 'bb'; $('op-unit-bb').classList.add('active'); $('op-unit-chips').classList.remove('active');
+        syncGaugeDisplay(); render();
       });
       $('op-unit-chips').addEventListener('click', () => {
         if (stackInputUnit === 'bb') { const v = parseFloat($('op-stack').value); if (v > 0) $('op-stack').value = Math.round(v * state.bb); }
-        stackInputUnit = 'chips'; state.stackUnit = 'chips'; $('op-unit-chips').classList.add('active'); $('op-unit-bb').classList.remove('active'); render();
+        stackInputUnit = 'chips'; state.stackUnit = 'chips'; $('op-unit-chips').classList.add('active'); $('op-unit-bb').classList.remove('active');
+        syncGaugeDisplay(); render();
       });
       $('op-nc').addEventListener('click', () => { p.inHand = true; p.stack = null; p.stackKnown = false; closeModal(); render(); });
-      $('op-stack').addEventListener('input', () => {});
       bindEnterToValidate('op-stack', 'op-ok');
       const removeBtn = $('op-remove');
       if (removeBtn) removeBtn.addEventListener('click', () => { p.inHand = false; p.stack = null; p.stackKnown = false; closeModal(); render(); });

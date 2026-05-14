@@ -61,6 +61,22 @@
 .raise-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 
 
+/* ---------- PRESETS JAUGE ---------- */
+.gauge-presets {
+  display: flex; gap: 6px; margin-bottom: 8px;
+}
+.gauge-preset-btn {
+  flex: 1; padding: 8px 2px; border-radius: 6px;
+  background: var(--s2); color: var(--cream);
+  border: 1px solid var(--b); font-size: 10px; font-weight: 800;
+  font-family: inherit; cursor: pointer; text-align: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.gauge-preset-btn:active { transform: scale(0.96); }
+.gauge-preset-btn.active { background: rgba(230,81,0,0.25); color: #ffcc80; border-color: rgba(230,81,0,0.5); }
+.gauge-preset-allin { background: rgba(183,28,28,0.15); color: #fca5a5; border-color: rgba(183,28,28,0.4); }
+.gauge-preset-allin.active { background: rgba(183,28,28,0.4); color: #fff; border-color: #b91c1c; }
+
 /* ---------- BOUTONS TOP-BAR ---------- */
 .reset-btn {
   background: rgba(211,47,47,0.14); color: #ef9a9a;
