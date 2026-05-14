@@ -168,7 +168,7 @@ export function showHistoryModal() {
       ${count > 0 ? '<button class="btn" style="background:#4b1c1c;color:#fca5a5;border:1px solid #7f1d1d;flex:0.7;" id="hist-clear">Clear</button>' : ''}
     </div>`;
 
-  showModal(html, {
+  showModal(html, { id: 'modal-history',
   onMount: () => {
     $('hist-close').addEventListener('click', closeModal);
 
@@ -183,7 +183,7 @@ export function showHistoryModal() {
         <div class="modal-actions">
           <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
           <button class="btn btn-primary" id="pseudo-save">Save</button>
-        </div>`, {
+        </div>`, { id: 'modal-pseudo',
         onMount: () => {
           const input = $('pseudo-input');
           input.focus(); input.select();
