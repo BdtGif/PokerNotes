@@ -124,6 +124,159 @@
   background: var(--s4); color: var(--cream);
 }
 
+/* ---------- ANALYSE PRÉFLOP — BOUTON ---------- */
+.ha-btn {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  background: var(--s1); border: 1px solid var(--b);
+  border-radius: 6px; padding: 6px 8px; cursor: pointer;
+  font-size: 11px; text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ha-btn:active { background: var(--s3); border-color: var(--gold); }
+
+.ha-label {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--ink);
+  background: rgba(232,212,184,0.2); border-radius: 3px;
+  padding: 1px 5px; flex-shrink: 0;
+}
+.ha-hand {
+  font-weight: 800; color: var(--cream); letter-spacing: 0.03em;
+  font-size: 12px; flex-shrink: 0;
+}
+.ha-pos {
+  font-size: 10px; font-weight: 700; color: var(--gold);
+  background: var(--gold-bg); border: 1px solid var(--gold-border);
+  border-radius: 3px; padding: 1px 5px; flex-shrink: 0;
+}
+.ha-verdict { font-weight: 600; font-size: 11px; flex: 1; min-width: 0; }
+.ha-chevron { margin-left: auto; color: rgba(232,212,184,0.3); font-size: 14px; flex-shrink: 0; }
+.ha-ok   { color: #4ade80; }
+.ha-bad  { color: #f87171; }
+.ha-warn { color: #fbbf24; }
+
+/* ---------- MODALE ANALYSE ---------- */
+.ana-header {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--s1); border: 1px solid var(--b);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;
+}
+.ana-cards { display: flex; gap: 4px; flex-shrink: 0; }
+.ana-header-meta { display: flex; flex-direction: column; gap: 4px; }
+.ana-handstr {
+  font-size: 20px; font-weight: 800; color: var(--cream); letter-spacing: 0.04em;
+}
+.ana-block {
+  background: var(--s1); border: 1px solid var(--b);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+}
+.ana-block-title {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--gold);
+  margin-bottom: 8px;
+}
+.ana-row {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 12px; padding: 3px 0;
+  border-bottom: 1px solid rgba(232,212,184,0.06);
+}
+.ana-row:last-child { border-bottom: none; }
+.ana-action-lbl {
+  font-size: 10px; font-weight: 700; color: rgba(232,212,184,0.4);
+  min-width: 56px; flex-shrink: 0;
+}
+.ana-action-val { color: var(--cream); font-weight: 600; }
+.ana-street-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; padding: 4px 0;
+  border-bottom: 1px solid rgba(232,212,184,0.06);
+}
+.ana-street-row:last-child { border-bottom: none; }
+.ana-street-act { color: rgba(255,255,255,0.6); }
+
+#solver-button {
+display: flex; align-items: center; gap: 6px;justify-content: space-between;
+}
+/* ---------- MODALE ANALYSE — PAS DE SCROLLBAR ---------- */
+#modal-analysis { scrollbar-width: none; }
+#modal-analysis::-webkit-scrollbar { display: none; }
+
+/* ---------- SECTIONS STREET (Préflop / Flop / Turn / River) ---------- */
+.ana-section {
+  border: 1px solid var(--b);
+  border-left: 3px solid var(--b);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.ana-section--ok   { border-left-color: #4ade80; }
+.ana-section--bad  { border-left-color: #f87171; }
+.ana-section--warn { border-left-color: #fbbf24; }
+.ana-section-header {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--s3); padding: 8px 12px;
+  border-bottom: 1px solid var(--b);
+}
+.ana-section-label {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--gold); flex-shrink: 0;
+}
+.ana-section-cards { display: flex; gap: 3px; }
+.ana-section-body { background: var(--s2); }
+
+/* Blocs intérieurs à la section : on retire leurs propres bordures et rayons */
+.ana-section .ana-block {
+  background: transparent;
+  border: none; border-radius: 0;
+  border-bottom: 1px solid rgba(232,212,184,0.06);
+  margin-bottom: 0;
+  display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 16px; align-items: center;justify-content: space-between;
+}
+.ana-section .ana-block:last-child { border-bottom: none; }
+.ana-section .ana-block .ana-row {
+  border-bottom: none; padding: 0; flex-shrink: 0;
+}
+.ana-section .ana-conseil {
+  border: none; border-radius: 0;
+  border-left: none;
+  margin-bottom: 0;
+  background: rgba(0,0,0,0.12);
+  padding: 10px 12px;
+}
+
+/* Section Ligne de jeu */
+.ana-section--line { border-left-color: rgba(232,212,184,0.3); }
+.ana-line-pattern {
+  font-size: 13px; font-weight: 800; letter-spacing: 0.12em;
+  color: var(--cream); margin-left: 4px;
+}
+
+/* Badge de catégorie de board (Extra Dry / Dry / Drawy) */
+.ana-board-badge {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.07em;
+  text-transform: uppercase; border-radius: 3px;
+  padding: 1px 6px; margin-left: auto; flex-shrink: 0;
+}
+.ana-board-badge--dry   { background: rgba(96,165,250,0.15); color: #93c5fd; border: 1px solid rgba(96,165,250,0.3); }
+.ana-board-badge--mid   { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+.ana-board-badge--drawy { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+
+/* ---------- BLOC CONSEIL ---------- */
+.ana-conseil {
+  border-left: 3px solid var(--gold);
+}
+.ana-conseil--ok   { border-left-color: #4ade80; }
+.ana-conseil--bad  { border-left-color: #f87171; }
+.ana-conseil--warn { border-left-color: #fbbf24; }
+.ana-conseil-text {
+  font-size: 12px; line-height: 1.65; color: rgba(232,212,184,0.82);
+  margin: 0; font-weight: 500;
+}
+.ana-context {
+  color: rgba(232,212,184,0.5) !important; font-size: 10px !important;
+  font-style: italic;
+}
+
 /* ---------- TOAST DE SAUVEGARDE ---------- */
 .toast {
   position: fixed; bottom: 80px; left: 50%;
