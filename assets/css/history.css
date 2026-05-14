@@ -197,8 +197,22 @@
 #solver-button {
 display: flex; align-items: center; gap: 6px;justify-content: space-between;
 }
+/* ---------- MODALE ANALYSE — PAS DE SCROLLBAR ---------- */
+#modal-analysis { scrollbar-width: none; }
+#modal-analysis::-webkit-scrollbar { display: none; }
+
 /* ---------- BOARD DANS MODALE ---------- */
 .ana-board-row { display: flex; gap: 3px; margin-bottom: 6px; }
+
+/* Badge de catégorie de board (Extra Dry / Dry / Drawy) */
+.ana-board-badge {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.07em;
+  text-transform: uppercase; border-radius: 3px;
+  padding: 1px 6px; margin-left: auto; flex-shrink: 0;
+}
+.ana-board-badge--dry   { background: rgba(96,165,250,0.15); color: #93c5fd; border: 1px solid rgba(96,165,250,0.3); }
+.ana-board-badge--mid   { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+.ana-board-badge--drawy { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
 
 /* ---------- BLOC CONSEIL ---------- */
 .ana-conseil {

@@ -4,7 +4,7 @@ import { $, fmtChips, cardLabel, showToast } from './utils.js';
 import { state } from './state.js';
 import { loadAllHands, saveAllHands, deleteHand, loadPseudo, savePseudo } from './storage.js';
 import { showModal, closeModal } from './ui.js';
-import { analyzeHandPreflop, analyzePostflopAction, normalizeHand } from './ranges.js';
+import { analyzeHandPreflop, analyzePostflopAction, classifyFlop, normalizeHand } from './ranges.js';
 
 function fmtHistAmt(n, bb) {
   if (state.stackUnit === 'bb' && bb) return (n / bb).toFixed(1) + ' bb';
@@ -188,8 +188,25 @@ function _showAnalysisModal(hand) {
           if (act === heroAct) break;
           potBefore += act.amount || 0;
         }
-        const analysis = analyzePostflopAction(key, heroAct, potBefore, st.actions);
-        rows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+        const analysis = analyzePostflopAction(key, heroAct, potBefore, st.actions, st.cards);
+
+        // Badge de classification du board (flop uniquement)
+        let boardBadge = '';
+        if (key === 'flop' && st.cards?.length >= 3) {
+          const flop = analysis?.boardInfo || classifyFlop(st.cards);
+          if (flop) {
+            const badgeCls = flop.category === 'extra-dry' ? 'ana-board-badge--dry'
+                           : flop.category === 'drawy'     ? 'ana-board-badge--drawy'
+                           :                                 'ana-board-badge--mid';
+            boardBadge = `<span class="ana-board-badge ${badgeCls}">${flop.label}</span>`;
+          }
+        }
+
+        rows = `<div class="ana-row">
+                  <span class="ana-action-lbl">Action</span>
+                  <span class="ana-action-val">${actionLbl}</span>
+                  ${boardBadge}
+                </div>
                 ${analysis ? `<div class="ana-row"><span class="ana-action-lbl">Sizing</span><span class="ha-verdict ha-warn">${analysis.verdict}</span></div>` : ''}`;
         if (analysis?.conseil) {
           conseilHtml = `<div class="ana-block ana-conseil ana-conseil--warn"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${analysis.conseil}</p></div>`;

@@ -314,15 +314,90 @@ export function analyzeHandPreflop(hand) {
   return { handStr, heroPos, heroAction: heroAction.action, result };
 }
 
+// ── Classification de board (Sizing-Cbet.pdf) ────────────────────────────────
+
+const _RV = Object.fromEntries([...'AKQJT98765432'].map((r, i) => [r, 14 - i]));
+// A=14, K=13, Q=12, J=11, T=10, 9=9, 8=8, 7=7, 6=6, 5=5, 4=4, 3=3, 2=2
+
+/**
+ * Classifie un flop en 3 catégories selon le PDF Sizing-Cbet.pdf (BTN vs BB).
+ * @param {string[]} cards — tableau de 3 cartes ex. ['Ah','Kd','7s']
+ * @returns {{ category: string, label: string, desc: string, sizing: Object } | null}
+ *   sizing: { earlyGame, midLate, shallow } — pourcentages pot recommandés
+ */
+export function classifyFlop(cards) {
+  if (!cards || cards.length < 3) return null;
+
+  const ranks = cards.slice(0, 3).map(c => _RV[c[0]] || 0);
+  const suits  = cards.slice(0, 3).map(c => c[1]);
+
+  ranks.sort((a, b) => b - a); // décroissant: [hi, mid, lo]
+  const [hi, mid, lo] = ranks;
+
+  // Flush draw
+  const suitCounts = suits.reduce((a, s) => { a[s] = (a[s] || 0) + 1; return a; }, {});
+  const maxSuit    = Math.max(...Object.values(suitCounts));
+  const isMonotone = maxSuit === 3;
+  const isTwoTone  = maxSuit === 2;
+  const isRainbow  = maxSuit === 1;
+
+  // Board pairé
+  const isPaired = new Set(ranks).size < 3;
+
+  // Connectivité : gap minimal entre deux cartes adjacentes triées
+  const gap1 = hi - mid;
+  const gap2 = mid - lo;
+  const minGap = Math.min(gap1, gap2);
+
+  // Catégorie de hauteur
+  const isAKHigh  = hi >= 13;          // A ou K en haut
+  const isMedHigh = hi >= 8 && hi <= 12; // Q J T 9 8
+  const isLow     = hi <= 7;            // 7 et moins
+
+  // ── Extra Dry : A/K high, arc-en-ciel, sans draw (gap > 3 entre toutes paires)
+  if (isAKHigh && isRainbow && minGap > 3 && !isPaired) {
+    return {
+      category: 'extra-dry',
+      label: 'Extra Dry',
+      desc: 'A/K high, rainbow, sans draw',
+      sizing: { earlyGame: 33, midLate: 25, shallow: 20 }
+    };
+  }
+
+  // ── Drawy : low, monotone, medium connecté ou board pairé bas
+  if (isLow || isMonotone || (isMedHigh && minGap <= 2) || (isPaired && lo <= 9 && !isAKHigh)) {
+    const why = isLow      ? '7-high ou moins — board très connecté'
+              : isMonotone ? 'board monotone — flush draw complet'
+              : isMedHigh  ? 'medium high avec draws importants'
+              :               'board pairé bas — nombreuses opportunités de check-raise BB';
+    return {
+      category: 'drawy',
+      label: 'Drawy',
+      desc: why,
+      sizing: { earlyGame: 66, midLate: 50, shallow: 33 }
+    };
+  }
+
+  // ── Dry : tout le reste (A/K avec flush draw, Q-8 sans draw significatif)
+  const why = isAKHigh ? 'A/K high avec draw possible' : 'medium high sans draw significatif';
+  return {
+    category: 'dry',
+    label: 'Dry',
+    desc: why,
+    sizing: { earlyGame: 50, midLate: 33, shallow: 25 }
+  };
+}
+
 /**
  * Analyse l'action postflop de Hero sur une street donnée.
- * @param {string} streetKey — 'flop' | 'turn' | 'river'
- * @param {Object} heroAction — {pos, action, amount}
- * @param {number} potBeforeHero — pot juste avant l'action de Hero
- * @param {Array}  streetActions — toutes les actions de la street
+ * @param {string}   streetKey      — 'flop' | 'turn' | 'river'
+ * @param {Object}   heroAction     — {pos, action, amount}
+ * @param {number}   potBeforeHero  — pot juste avant l'action de Hero
+ * @param {Array}    streetActions  — toutes les actions de la street
+ * @param {string[]} [boardCards]   — cartes du board de la street (pour flop)
  * @returns {{ verdict: string, conseil: string } | null}
  */
-export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, streetActions) {
+export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, streetActions, boardCards) {
   const action   = heroAction.action;
   const amount   = heroAction.amount || 0;
   const heroIdx  = streetActions.indexOf(heroAction);
@@ -342,28 +417,52 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
     }
 
     const ratio = potBeforeHero > 0 ? amount / potBeforeHero : 0;
-    let verdict, conseil;
+    const pct   = Math.round(ratio * 100);
 
-    if (ratio <= 0.29) {
-      verdict = `${v} petite (${Math.round(ratio * 100)}% pot)`;
-      conseil = `${v} petite à ${Math.round(ratio * 100)}% du pot. Adapté aux blocker bets, protection sur boards secs ou thin value. Cette taille donne un bon prix à l'adversaire — assurez-vous d'avoir une raison stratégique précise. Avec des mains moyennes, une petite mise peut signaler de la faiblesse et provoquer des floats ou re-raises.`;
-    } else if (ratio <= 0.45) {
-      verdict = `${v} ~1/3 pot (${Math.round(ratio * 100)}%)`;
-      conseil = `Sizing 1/3 pot standard. Adapté pour un range large et polarisé sur boards favorables. Donne un prix raisonnable à l'adversaire tout en récupérant de la valeur. Utilisez cette taille avec un mix équilibré de value hands et de bluffs bien choisis.`;
-    } else if (ratio <= 0.59) {
-      verdict = `${v} ~1/2 pot (${Math.round(ratio * 100)}%)`;
-      conseil = `Mise 1/2 pot : taille équilibrée, bonne par défaut sur de nombreux boards. Elle protège vos mains fortes contre les draws et extrait de la valeur. Bien adaptée aux boards de texture moyenne avec des flush ou straight draws possibles.`;
-    } else if (ratio <= 0.79) {
-      verdict = `${v} 2/3 pot (${Math.round(ratio * 100)}%)`;
-      conseil = `Mise 2/3 pot : taille agressive qui met la pression sur les mains moyennes et les draws marginaux. Adaptée aux boards texturés ou pour protéger une main forte. Utilisez-la avec un range polarisé — mains très fortes et bluffs sélectionnés avec une bonne représentation du board.`;
-    } else if (ratio <= 1.05) {
-      verdict = `${v} pot (${Math.round(ratio * 100)}%)`;
-      conseil = `Mise plein pot : sizing très agressif qui représente une main forte ou polarisée. L'adversaire n'a besoin que de ~25% d'équité pour justifier un call — soyez sûr d'avoir soit une main premium, soit un range de bluff crédible. Évitez les mises pot avec des mains moyennes sans représentation claire.`;
-    } else {
-      verdict = `Overbet (${Math.round(ratio * 100)}% pot)`;
-      conseil = `Overbet : ligne rare qui représente une range ultra-polarisée (nuts ou bluff). À utiliser uniquement sur des boards qui avantagent clairement votre range et face à des adversaires qui ne s'adaptent pas. L'adversaire doit approcher 50% d'équité pour être indifférent — assurez-vous que votre ratio value/bluff est équilibré.`;
+    // ── C-bet flop : classification board + sizing recommandé (BTN vs BB, Early Game) ──
+    if (streetKey === 'flop' && isBet && boardCards?.length >= 3) {
+      const flop = classifyFlop(boardCards);
+      if (flop) {
+        const rec   = flop.sizing.earlyGame;
+        const delta = pct - rec;
+        let verdict, conseil;
+
+        if (Math.abs(delta) <= 10) {
+          verdict = `C-bet ✓ ${pct}% — board ${flop.label}`;
+          conseil = `Votre c-bet de ${pct}% est aligné avec le sizing recommandé (~${rec}%) pour un board ${flop.label} (${flop.desc}). ${flop.category === 'extra-dry' ? `Sur un board extra dry, vous bénéficiez d'un fort avantage de range — une petite mise suffit à extraire de la valeur car l'adversaire défend avec beaucoup de mains dominées. Misez avec un range large.` : flop.category === 'dry' ? `Sur un board dry, une mise ~${rec}% équilibre votre range value/bluff tout en protégeant vos mains contre les draws potentiels. Sélectionnez vos bluffs avec des backdoor draws.` : `Sur un board drawy, une mise plus grosse de ~${rec}% est indispensable — votre adversaire a de nombreux draws et doit payer suffisamment cher pour ne pas avoir un appel profitable.`}`;
+        } else if (delta < -10) {
+          verdict = `C-bet trop petite (${pct}% vs ~${rec}% rec.) — board ${flop.label}`;
+          conseil = `Sur un board ${flop.label} (${flop.desc}), le sizing recommandé est ~${rec}% du pot. Votre mise de ${pct}% est trop petite : ${flop.category === 'drawy' ? `les boards drawy nécessitent une mise plus grosse — donner un bon prix aux draws adverses rend leurs calls trop profitables. Visez ~${rec}% pour qu'ils paient correctement leur équité.` : flop.category === 'dry' ? `sur ce board dry, une mise plus petite laisse de la valeur sur la table et donne à l'adversaire un excellent prix pour flotter avec des mains marginales. Préférez ~${rec}%.` : `même sur un board extra dry, allez à ${rec}% pour extraire de la valeur — votre adversaire doit payer pour ses mains dominées.`}`;
+        } else {
+          verdict = `C-bet trop grande (${pct}% vs ~${rec}% rec.) — board ${flop.label}`;
+          conseil = `Sur un board ${flop.label} (${flop.desc}), le sizing recommandé est ~${rec}% du pot. Votre mise de ${pct}% est trop grande : ${flop.category === 'extra-dry' ? `sur les boards extra dry, une grosse mise réduit votre fréquence de c-bet — vous ne pouvez pas la justifier avec assez de bluffs. Préférez ${rec}% pour c-beter avec un range plus large et extraire de la valeur de manière moins risquée.` : `cette taille met trop de pression avec votre range complet — l'adversaire va folder les mains marginales mais défendre avec ses mains fortes, réduisant votre EV globale. Visez ~${rec}% pour un range de c-bet plus équilibré.`}`;
+        }
+
+        return { boardInfo: flop, verdict, conseil };
+      }
     }
 
+    // ── Générique (pas un c-bet flop identifié) ──
+    let verdict, conseil;
+    if (ratio <= 0.29) {
+      verdict = `${v} petite (${pct}% pot)`;
+      conseil = `${v} petite à ${pct}% du pot. Adapté aux blocker bets, protection sur boards secs ou thin value. Donne un bon prix à l'adversaire — assurez-vous d'avoir une raison stratégique précise. Avec des mains moyennes, une petite mise peut signaler de la faiblesse et provoquer des floats ou re-raises.`;
+    } else if (ratio <= 0.45) {
+      verdict = `${v} ~1/3 pot (${pct}%)`;
+      conseil = `Sizing standard à 1/3 pot. Adapté pour un range large et polarisé. Donne un prix raisonnable à l'adversaire tout en récupérant de la valeur avec un mix équilibré de value hands et de bluffs.`;
+    } else if (ratio <= 0.59) {
+      verdict = `${v} ~1/2 pot (${pct}%)`;
+      conseil = `Mise 1/2 pot : taille équilibrée, bonne par défaut sur la plupart des boards. Elle protège vos mains fortes contre les draws et extrait de la valeur sans surexposer votre range.`;
+    } else if (ratio <= 0.79) {
+      verdict = `${v} 2/3 pot (${pct}%)`;
+      conseil = `Mise 2/3 pot : taille agressive qui met la pression sur les mains moyennes et les draws marginaux. Adaptée aux boards texturés ou pour protéger une main forte avec un range polarisé.`;
+    } else if (ratio <= 1.05) {
+      verdict = `${v} pot (${pct}%)`;
+      conseil = `Mise plein pot : sizing très agressif représentant une main forte. L'adversaire n'a besoin que de ~25% d'équité pour justifier un call — assurez-vous d'avoir une main premium ou un range de bluff crédible.`;
+    } else {
+      verdict = `Overbet (${pct}% pot)`;
+      conseil = `Overbet : ligne rare pour une range ultra-polarisée (nuts ou bluff). À utiliser uniquement sur des boards qui avantagent clairement votre range. Assurez-vous que votre ratio value/bluff est équilibré à cette taille extrême.`;
+    }
     return { verdict, conseil };
   }
 
