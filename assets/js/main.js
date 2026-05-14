@@ -86,7 +86,7 @@ $('validate-setup-btn').addEventListener('click', () => {
         <div class="modal-subtitle">Select your 2 hole cards before starting the hand.</div>
         <div class="modal-actions">
           <button class="btn btn-primary" id="missing-cards-ok">OK</button>
-        </div>`, { onMount: () => $('missing-cards-ok').addEventListener('click', closeModal) });
+        </div>`, { id: 'modal-missing-cards', onMount: () => $('missing-cards-ok').addEventListener('click', closeModal) });
       return;
     }
     startPreflop();
@@ -116,7 +116,7 @@ $('reset-btn').addEventListener('click', () => {
       <button class="btn btn-primary" id="reset-confirm" style="background:#b91c1c;">Réinitialiser</button>
     </div>
   `;
-  showModal(html, {
+  showModal(html, { id: 'modal-reset',
     onMount: () => {
       $('reset-cancel').addEventListener('click', closeModal);
       $('reset-confirm').addEventListener('click', () => {
