@@ -4,7 +4,7 @@ import { $, fmtChips, cardLabel, showToast } from './utils.js';
 import { state } from './state.js';
 import { loadAllHands, saveAllHands, deleteHand, loadPseudo, savePseudo } from './storage.js';
 import { showModal, closeModal } from './ui.js';
-import { analyzeHandPreflop, analyzePostflopAction, classifyFlop, normalizeHand } from './ranges.js';
+import { analyzeHandPreflop, analyzePostflopAction, analyzeMultibarrelLine, classifyFlop, normalizeHand } from './ranges.js';
 
 function fmtHistAmt(n, bb) {
   if (state.stackUnit === 'bb' && bb) return (n / bb).toFixed(1) + ' bb';
@@ -150,6 +150,7 @@ function _showAnalysisModal(hand) {
 
   let streetBlocks = '';
   let prevKey = null;
+  let flopCards = null; // conservé pour passer aux analyses turn/river
 
   for (const { key, label } of streetDefs) {
     const st = hand.streets?.[key];
@@ -192,7 +193,10 @@ function _showAnalysisModal(hand) {
           if (act === heroAct) break;
           potBefore += act.amount || 0;
         }
-        const analysis = analyzePostflopAction(key, heroAct, potBefore, st.actions, st.cards);
+        if (key === 'flop') flopCards = st.cards;
+        // Pour turn et river, on passe les cartes du flop pour classifier la texture
+        const texCards = key === 'flop' ? st.cards : (flopCards || st.cards);
+        const analysis = analyzePostflopAction(key, heroAct, potBefore, st.actions, texCards);
 
         // Badge de classification (flop uniquement, dans le header de section)
         if (key === 'flop' && st.cards?.length >= 3) {
@@ -236,6 +240,22 @@ function _showAnalysisModal(hand) {
     streetBlocks = `<div class="ana-section"><div class="ana-section-body"><div class="ana-block"><div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div></div></div></div>`;
   }
 
+  // Section Ligne de jeu (multibarrel)
+  const mbLine = analyzeMultibarrelLine(hand);
+  const lineSection = mbLine ? `
+    <div class="ana-section ana-section--warn ana-section--line">
+      <div class="ana-section-header">
+        <span class="ana-section-label">Ligne de jeu</span>
+        <span class="ana-line-pattern">${mbLine.pattern.split('').join(' › ')}</span>
+      </div>
+      <div class="ana-section-body">
+        <div class="ana-conseil" style="border-left:none;background:transparent;padding:10px 12px;">
+          <div class="ana-block-title">${mbLine.verdict}</div>
+          <p class="ana-conseil-text">${mbLine.conseil}</p>
+        </div>
+      </div>
+    </div>` : '';
+
   const html = `
     <div class="modal-title">Analyse de main</div>
     <div class="ana-header">
@@ -246,6 +266,7 @@ function _showAnalysisModal(hand) {
       </div>
     </div>
     ${streetBlocks}
+    ${lineSection}
     <div class="modal-actions">
       <button class="btn btn-secondary" id="ana-close">Retour</button>
     </div>`;

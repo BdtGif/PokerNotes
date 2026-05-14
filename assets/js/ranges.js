@@ -442,7 +442,60 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
       }
     }
 
-    // ── Générique (pas un c-bet flop identifié) ──
+    // ── 2-barrel turn : sizing recommandé selon texture (Multibarrel.pdf) ──
+    if (streetKey === 'turn' && isBet && boardCards?.length >= 3) {
+      const flop = classifyFlop(boardCards);
+      if (flop) {
+        if (flop.category === 'drawy') {
+          if (ratio < 0.65) return {
+            verdict: `2-barrel trop petite (${pct}% vs 80-100%+ rec.) — turn drawy`,
+            conseil: `Sur un board drawy (${flop.desc}), NE JAMAIS 2-barrel avec une petite mise au turn. Les draws sont indifférents à vos petites mises : ils appellent correctement et réalisent leur équité sans payer le prix fort. Visez 80-100%+ pot pour rendre leurs calls non-profitables et protéger vos mains fortes.`
+          };
+          if (ratio >= 0.80) return {
+            verdict: `2-barrel ✓ ${pct}% — turn drawy`,
+            conseil: `Excellent sizing au turn drawy (80-100%+ recommandé). Cette taille met la pression maximale sur les draws — ils ne peuvent plus appeler profitablement. C'est aussi le moment de prendre de la valeur avec vos mains fortes car de nombreuses cartes de river peuvent bloquer l'action.`
+          };
+          return {
+            verdict: `2-barrel ${pct}% — turn drawy (borderline)`,
+            conseil: `Sur un board drawy, visez 80-100%+ au turn. Votre mise de ${pct}% est dans la zone grise — les draws avec le meilleur pot odds peuvent encore appeler marginalement. Montez votre sizing pour maximiser la pression et extrayez toute la valeur avant une river qui peut compléter les draws.`
+          };
+        } else {
+          if (ratio >= 0.45 && ratio <= 0.80) return {
+            verdict: `2-barrel ✓ ${pct}% — turn sec`,
+            conseil: `Bon sizing au turn sec (50-75% recommandé). Cette taille extrait de la valeur de manière équilibrée, met la pression sur les mains moyennes et laisse de la room pour barrel river. Continuez avec vos mains fortes et quelques bluffs sélectionnés avec des backdoor draws.`
+          };
+          if (ratio < 0.45) return {
+            verdict: `2-barrel trop petite (${pct}% vs 50-75% rec.) — turn sec`,
+            conseil: `Sur un board sec au turn, visez 50-75% pot. Votre mise de ${pct}% laisse de la valeur sur la table et donne à l'adversaire un excellent prix pour défendre ses mains moyennes et flotter. Augmentez votre sizing pour rendre leurs calls moins profitables.`
+          };
+          return {
+            verdict: `2-barrel oversize (${pct}%) — turn sec`,
+            conseil: `Mise plus grosse que le standard (50-75%) au turn sec. Cela peut être un overbet stratégique justifié avec les nuts ou dans un spot très polarisé. Attention : sur un board sec, l'adversaire arrive au river avec un range très fort si il call — préparez votre ligne river en conséquence.`
+          };
+        }
+      }
+    }
+
+    // ── River barrel : standard 50%+ + conseil sur les blockers ──
+    if (streetKey === 'river' && isBet) {
+      const heroPos = heroAction.pos;
+      const isEP = new Set(['UTG','UTG+1','UTG+2','MP','LJ']).has(heroPos);
+      const posLbl = heroPos === 'BU' ? 'BTN' : heroPos;
+      const blockerTip = isEP
+        ? `Depuis ${posLbl}, les mid pair blockers sont précieux au bluff river — votre adversaire fold plus facilement ses top pairs face à une range EP tight.`
+        : `BTN vs BB, l'adversaire call tous les top pairs même mal kickés — privilégiez les top pair blockers dans votre range de bluff river (ex : Ax sur un board Axx).`;
+
+      if (ratio >= 0.45) return {
+        verdict: `River barrel ✓ ${pct}%`,
+        conseil: `Sizing correct au river (50%+ recommandé). Pour équilibrer votre range : misez avec vos nuts ET vos natural bluffs (draws manqués sans showdown value, avec des blockers sur les mains fortes de l'adversaire). ${blockerTip} Évitez les bluffs sans blockers — l'adversaire sera souvent en position de call.`
+      };
+      return {
+        verdict: `River trop petite (${pct}% vs 50%+ rec.)`,
+        conseil: `Le standard river est 50%+. Une mise de ${pct}% est défendable uniquement contre un adversaire très passif/faible, ou en pot 3-bet spécifique. En règle générale, vous perdez de la valeur avec vos bonnes mains et vos bluffs sont moins crédibles. ${blockerTip}`
+      };
+    }
+
+    // ── Générique (relance postflop, ou pas de classification board) ──
     let verdict, conseil;
     if (ratio <= 0.29) {
       verdict = `${v} petite (${pct}% pot)`;
@@ -518,4 +571,58 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
   }
 
   return null;
+}
+
+// ── Analyse de la ligne de jeu multibarrel (Multibarrel.pdf) ─────────────────
+
+/**
+ * Évalue la ligne de jeu Hero sur l'ensemble des streets (BBB, BBX, XBB…).
+ * @param {Object} hand — enregistrement de main issu de storage.js
+ * @returns {{ pattern: string, verdict: string, conseil: string } | null}
+ */
+export function analyzeMultibarrelLine(hand) {
+  const hero = hand.heroIdx != null ? hand.players?.[hand.heroIdx] : null;
+  if (!hero) return null;
+
+  const flopInfo   = classifyFlop(hand.streets?.flop?.cards || []);
+  const isDrawy    = flopInfo?.category === 'drawy';
+  const boardLabel = flopInfo ? flopInfo.label : '';
+
+  const streetKeys = ['flop', 'turn', 'river'];
+  const codes = [];
+
+  for (const key of streetKeys) {
+    const st = hand.streets?.[key];
+    if (!st?.actions?.length) break;
+    const act = st.actions.find(a => a.pos === hero.pos);
+    if (!act) break;
+    if (act.action === 'fold') { codes.push('F'); break; }
+    codes.push(act.action === 'check' ? 'X' : 'B');
+  }
+
+  if (codes.length < 2) return null;
+  const pattern = codes.join('');
+  const _c = (v, t) => ({ pattern, verdict: v, conseil: t });
+
+  switch (pattern) {
+    case 'BBB': return _c('Ligne BBB — Triple barrel',
+      `Triple barrel : vous avez misé les 3 streets. Cette ligne représente une main très forte (value) ou un bluff total bien construit. Pour être équilibré, combinez les nuts ET des natural bluffs (draws manqués avec blockers, mains sans showdown value). ${isDrawy ? `Sur ce board ${boardLabel}, les draws manqués au river sont des bluffs naturels idéaux pour la 3ème balle.` : `Sur ce board ${boardLabel} sec, le triple-barrel est crédible — peu de mains complètent en river.`}`);
+    case 'BBX': return _c('Ligne BBX — 2 streets, check river',
+      `Bonne ligne pour les mains à 2 streets de valeur. Le check river contrôle le pot avec les mains intermédiaires et peut induire un bluff adverse. Recommandé contre les profils passifs. ${isDrawy ? `Sur un board drawy, anticipez les draws qui complètent en river et préparez un plan (call ou fold face au bet adverse).` : ``}`);
+    case 'XBB': return _c('Ligne XBB — Check flop, 2 streets turn/river',
+      `Ligne efficace contre les adversaires agressifs. Le check flop garde votre range large et non-cappée, puis vous prenez l'initiative au turn/river. Permet d'induire les overbluffs adverses au flop. Idéal contre les profils aggros qui bluffent les checks.`);
+    case 'BXB': return _c('Ligne BXB — Attention !',
+      `Ligne risquée contre les bons joueurs. Le check turn arrive au river avec une range cappée — l'adversaire sait que vous n'avez pas les mains très fortes. Vous laissez aussi les draws s'améliorer gratuitement. À réserver aux fish totalement passifs ou en pot 3-bet pour un check-raise turn spécifique.`);
+    case 'BBF': return _c('Ligne BBF — 2 barrels puis fold river',
+      `2 barrels puis abandon au river. Si vous avez foldé face à une mise correctement pricée sans équité résiduelle, le fold peut être justifié. Si vous avez abandonné avec une main pouvant gagner ou face à une mise défendable, c'est une erreur de consistance de ligne.`);
+    case 'BXF': return _c('Ligne BXF — Bet flop, check turn, fold river',
+      `Pot control au turn puis abandon au river. Analysez votre main au river : aviez-vous encore de l'équité ? Le check turn peut avoir signalé de la faiblesse et induit un bluff river — évaluez si votre fold était correct selon le pot odds offert.`);
+    case 'XBF': return _c('Ligne XBF — Delayed c-bet, fold river',
+      `Delayed c-bet au turn puis abandon au river. Évaluez si votre barrel turn était justifié et si votre fold river était correct selon le pot odds adverse.`);
+    case 'BB': return _c('Ligne BB — Flop + Turn',
+      `2 barrels. ${isDrawy ? `Sur un board drawy, planifiez votre river action AVANT de barrel le turn — si un draw complète, avez-vous assez de mains fortes pour continuer de manière crédible ?` : `Sur un board sec, le 2-barrel est cohérent. Planifiez : check river avec les mains intermédiaires, bet avec les nuts et vos natural bluffs.`}`);
+    case 'XB': return _c('Ligne XB — Delayed c-bet turn',
+      `Delayed c-bet efficace, surtout sur les boards drawy pour voir si l'adversaire a connecté avant de prendre l'initiative. Gardez un range équilibré en checkant aussi quelques mains fortes au flop pour ne pas être lisible.`);
+    default: return null;
+  }
 }
