@@ -277,6 +277,43 @@ display: flex; align-items: center; gap: 6px;justify-content: space-between;
   font-style: italic;
 }
 
+/* ---------- MOVE OPTIMAL ---------- */
+.ana-optimal { border-top: 1px solid rgba(232,212,184,0.08); }
+.ana-optimal-toggle {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; background: none; border: none;
+  padding: 8px 12px; cursor: pointer; text-align: left;
+  transition: background 0.15s;
+}
+.ana-optimal-toggle:active { background: rgba(255,255,255,0.04); }
+.ana-optimal-icon { font-size: 11px; flex-shrink: 0; }
+.ana-optimal-tag {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(232,212,184,0.38);
+  flex-shrink: 0;
+}
+.ana-optimal-action {
+  font-size: 12px; font-weight: 800; padding: 2px 8px;
+  border-radius: 4px; flex-shrink: 0; letter-spacing: 0.02em;
+}
+.ana-optimal-action--raise { background: rgba(96,165,250,0.15); color: #93c5fd; border: 1px solid rgba(96,165,250,0.25); }
+.ana-optimal-action--call  { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
+.ana-optimal-action--fold  { background: rgba(248,113,113,0.10); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.ana-optimal-action--check { background: rgba(251,191,36,0.10);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
+.ana-optimal-chevron {
+  margin-left: auto; font-size: 12px;
+  color: rgba(232,212,184,0.25); flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.ana-optimal-chevron.open { transform: rotate(90deg); }
+.ana-optimal-body {
+  padding: 8px 12px 10px;
+  font-size: 11.5px; line-height: 1.6;
+  color: rgba(232,212,184,0.72); font-weight: 500;
+  border-top: 1px solid rgba(232,212,184,0.06);
+  background: rgba(0,0,0,0.12);
+}
+
 /* ---------- TOAST DE SAUVEGARDE ---------- */
 .toast {
   position: fixed; bottom: 80px; left: 50%;

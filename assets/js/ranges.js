@@ -626,3 +626,178 @@ export function analyzeMultibarrelLine(hand) {
     default: return null;
   }
 }
+
+// ── Move optimal (calcul indépendant de l'action Hero) ───────────────────────
+
+/**
+ * Calcule le move optimal pour un spot donné, indépendamment de l'action Hero.
+ * @param {Object} hand — enregistrement de main
+ * @param {string} streetKey — 'preflop' | 'flop' | 'turn' | 'river'
+ * @returns {{ label: string, detail: string, actionType: 'raise'|'call'|'fold'|'check' } | null}
+ */
+export function computeOptimalMove(hand, streetKey) {
+  const hero = hand.heroIdx != null ? hand.players?.[hand.heroIdx] : null;
+  if (!hero) return null;
+
+  // ── PRÉFLOP ──────────────────────────────────────────────────────────────
+  if (streetKey === 'preflop') {
+    const hasCards = hero.cards?.length >= 2 && hero.cards[0] && hero.cards[1];
+    if (!hasCards) return null;
+    const handStr = normalizeHand(hero.cards[0], hero.cards[1]);
+    if (!handStr) return null;
+
+    const heroPos    = hero.pos;
+    const posLabel   = heroPos === 'BU' ? 'BTN' : heroPos;
+    const pfActions  = hand.streets?.preflop?.actions || [];
+    const heroActIdx = pfActions.findIndex(a => a.pos === heroPos);
+    if (heroActIdx === -1) return null;
+
+    const actsBefore  = pfActions.slice(0, heroActIdx);
+    const raiseBefore = [...actsBefore].reverse().find(a => a.action === 'raise' || a.action === 'allin');
+
+    // Open spot (pas de raise avant)
+    if (!raiseBefore) {
+      const range = _openRange(heroPos);
+      const freq  = heroPos === 'BU' ? 40 : heroPos === 'CO' ? 26 : heroPos === 'HJ' ? 22 : 19;
+      if (range.has(handStr)) return {
+        label: 'Open raise', actionType: 'raise',
+        detail: `${handStr} est dans le range d'open ${posLabel} (~${freq}%). Open raise est l'action optimale depuis cette position.`
+      };
+      if (_OPEN_LOSIF.has(handStr)) return {
+        label: 'Open raise (spot +)', actionType: 'raise',
+        detail: `${handStr} est dans le range étendu — optimal en BTN ou spot très favorable uniquement. Fold depuis les positions early.`
+      };
+      return {
+        label: 'Fold', actionType: 'fold',
+        detail: `${handStr} est hors range d'open depuis ${posLabel}. Attendez une main dans votre range.`
+      };
+    }
+
+    const raiserLabel = raiseBefore.pos === 'BU' ? 'BTN' : raiseBefore.pos;
+
+    // BB face à un open
+    if (heroPos === 'BB') {
+      if (_3BET_VALUE.has(handStr)) return {
+        label: '3-bet value', actionType: 'raise',
+        detail: `${handStr} (top 4%) — 3-bet obligatoire depuis le BB. Construisez le pot avec la meilleure main face à l'open ${raiserLabel}.`
+      };
+      if (_BB_ALWAYS.has(handStr)) return {
+        label: 'Call', actionType: 'call',
+        detail: `${handStr} est dans le range de défense systématique du BB quelle que soit la position de l'openeur.`
+      };
+      if (_BB_MITIGE.has(handStr)) {
+        if (_EARLY_POS.has(raiseBefore.pos)) return {
+          label: 'Fold', actionType: 'fold',
+          detail: `${handStr} est borderline en BB. Face à un open EP (range tight), le fold est recommandé — vous serez souvent dominé.`
+        };
+        return {
+          label: 'Call (mitigé)', actionType: 'call',
+          detail: `${handStr} en défense mitigée BB. Face à ${raiserLabel} (range plus large), le call est acceptable.`
+        };
+      }
+      if (_BB_REVE.has(handStr)) return {
+        label: 'Fold', actionType: 'fold',
+        detail: `${handStr} ne défend qu'en spot rêvé (open BTN très large). Face à ${raiserLabel}, fold recommandé.`
+      };
+      return {
+        label: 'Fold', actionType: 'fold',
+        detail: `${handStr} est hors range de défense BB face à ${raiserLabel}.`
+      };
+    }
+
+    // Hors BB face à un open
+    if (_3BET_VALUE.has(handStr)) return {
+      label: '3-bet value', actionType: 'raise',
+      detail: `${handStr} (top 4%) — 3-bet obligatoire depuis ${posLabel}. Ne slowplayez pas face à l'open ${raiserLabel}.`
+    };
+    let bluffSet, callSet;
+    switch (heroPos) {
+      case 'BU': bluffSet = _BTN_3BET_BLUFF; callSet = _BTN_CALL; break;
+      case 'CO': bluffSet = _CO_3BET_BLUFF;  callSet = _CO_CALL;  break;
+      case 'HJ': bluffSet = _HJ_3BET_BLUFF;  callSet = _HJ_CALL;  break;
+      case 'SB': bluffSet = _SB_3BET_BLUFF;  callSet = _SB_CALL;  break;
+      default:   bluffSet = new Set();        callSet = new Set();
+    }
+    if (bluffSet.has(handStr)) return {
+      label: '3-bet bluff', actionType: 'raise',
+      detail: `${handStr} est dans le range de 3-bet bluff depuis ${posLabel} face à l'open ${raiserLabel}.`
+    };
+    if (callSet.has(handStr)) return {
+      label: 'Call', actionType: 'call',
+      detail: `${handStr} est dans le range de call depuis ${posLabel} face à l'open ${raiserLabel}.`
+    };
+    return {
+      label: 'Fold', actionType: 'fold',
+      detail: `${handStr} est hors range de jeu depuis ${posLabel} face à un open ${raiserLabel}.`
+    };
+  }
+
+  // ── POSTFLOP ─────────────────────────────────────────────────────────────
+  const st = hand.streets?.[streetKey];
+  if (!st?.actions?.length) return null;
+
+  const heroAct = st.actions.find(a => a.pos === hero.pos);
+  if (!heroAct) return null;
+
+  const heroActIdx = st.actions.indexOf(heroAct);
+  const actsBefore = st.actions.slice(0, heroActIdx);
+  const hasBetBefore = actsBefore.some(a => a.action === 'raise' || a.action === 'allin');
+  const flopCards = hand.streets?.flop?.cards;
+  const flop = classifyFlop(flopCards || []);
+
+  // Hero est le premier à agir (aggressor ou check)
+  if (!hasBetBefore) {
+    if (streetKey === 'flop' && flop) {
+      const rec = flop.sizing.earlyGame;
+      const tip = flop.category === 'extra-dry'
+        ? 'Mise petite sur un board sec — c-betez avec un range large pour extraire de la valeur.'
+        : flop.category === 'drawy'
+        ? 'Mise grosse indispensable — les draws doivent payer le bon prix.'
+        : 'Sizing équilibré pour protéger vos mains et bluffer sélectivement.';
+      return {
+        label: `C-bet ~${rec}% pot`, actionType: 'raise',
+        detail: `Board ${flop.label} (${flop.desc}) — sizing optimal : ~${rec}% du pot. ${tip}`
+      };
+    }
+    if (streetKey === 'turn' && flop) {
+      if (flop.category === 'drawy') return {
+        label: 'Bet 80-100% pot', actionType: 'raise',
+        detail: `Turn drawy (${flop.desc}) — mise grande 80-100% requise pour que les draws ne puissent pas appeler profitablement. Protégez vos mains fortes.`
+      };
+      return {
+        label: 'Bet 50-75% pot', actionType: 'raise',
+        detail: `Turn sec (${flop?.desc || 'board sec'}) — sizing standard 50-75% du pot. Extrait de la valeur et continue le bluff sélectivement.`
+      };
+    }
+    if (streetKey === 'river') return {
+      label: 'Bet ≥50% pot', actionType: 'raise',
+      detail: `River standard : bet 50%+ pour la valeur ET les bluffs crédibles. Combinez nuts et draws manqués (avec blockers). Évitez les petites mises.`
+    };
+  }
+
+  // Hero face à une mise — pot odds
+  const lastBet = [...actsBefore].reverse().find(a => a.action === 'raise' || a.action === 'allin');
+  if (lastBet?.amount > 0) {
+    const prevStreetKey = { flop: 'preflop', turn: 'flop', river: 'turn' }[streetKey];
+    let potBefore = hand.streets?.[prevStreetKey]?.potEnd || 0;
+    for (const act of actsBefore) potBefore += act.amount || 0;
+    const toCall = lastBet.amount;
+    if (potBefore > 0) {
+      const pctNeed = Math.round(toCall / (potBefore + toCall) * 100);
+      if (pctNeed <= 25) return {
+        label: `Call (éq. ≥${pctNeed}%)`, actionType: 'call',
+        detail: `Excellent prix : seulement ${pctNeed}% d'équité requise. Défendez large — fold uniquement si vous n'avez aucun out ni showdown value.`
+      };
+      if (pctNeed <= 40) return {
+        label: `Call si éq. ≥${pctNeed}%`, actionType: 'call',
+        detail: `Prix raisonnable (${pctNeed}% requis). Call justifié avec top pair+, draws forts ou implied odds. Fold avec les mains faibles sans potentiel.`
+      };
+      return {
+        label: `Fold / éq. ≥${pctNeed}%`, actionType: 'fold',
+        detail: `Prix élevé (${pctNeed}% requis). Le fold est optimal avec les mains sans potentiel. Continuez uniquement avec des mains très fortes.`
+      };
+    }
+  }
+
+  return null;
+}
