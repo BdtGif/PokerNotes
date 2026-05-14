@@ -4,6 +4,7 @@ import { $, fmtChips, cardLabel, showToast } from './utils.js';
 import { state } from './state.js';
 import { loadAllHands, saveAllHands, deleteHand, loadPseudo, savePseudo } from './storage.js';
 import { showModal, closeModal } from './ui.js';
+import { analyzeHandPreflop, analyzePostflopAction, analyzeMultibarrelLine, classifyFlop, normalizeHand } from './ranges.js';
 
 function fmtHistAmt(n, bb) {
   if (state.stackUnit === 'bb' && bb) return (n / bb).toFixed(1) + ' bb';
@@ -90,6 +91,194 @@ function _handStreetsHtml(hand, unit = 'chips') {
   return parts.length ? `<div class="hs-streets">${parts.join('')}</div>` : '';
 }
 
+function _actionLabel(action) {
+  return { raise:'Open raise', allin:'All-in', call:'Call', fold:'Fold', check:'Check' }[action] || action || '—';
+}
+
+function _preflopAnalysisHtml(hand) {
+  const hero = hand.heroIdx != null ? hand.players?.[hand.heroIdx] : null;
+  const posLabel = p => p === 'BU' ? 'BTN' : (p || '—');
+
+  if (!hero) {
+    return `<button class="ha-btn" data-analyse-id="${hand.id}">
+      <span class="ha-label">Solver</span>
+      <span class="ha-chevron">›</span>
+    </button>`;
+  }
+
+  const hasCards = hero.cards && hero.cards.length >= 2 && hero.cards[0] && hero.cards[1];
+  const pos = posLabel(hero.pos);
+
+  if (!hasCards) {
+    return `<button class="ha-btn" data-analyse-id="${hand.id}">
+      <span class="ha-label">Solver</span>
+      <span class="ha-chevron">›</span>
+    </button>`;
+  }
+
+  const handStr = normalizeHand(hero.cards[0], hero.cards[1]);
+  const a = analyzeHandPreflop(hand);
+
+  if (!a || !a.result) {
+    return `<button class="ha-btn" data-analyse-id="${hand.id}">
+      <span class="ha-label">Solver</span>
+      <span class="ha-chevron">›</span>
+    </button>`;
+  }
+
+  const okCls = a.result.ok === true ? 'ha-ok' : a.result.ok === false ? 'ha-bad' : 'ha-warn';
+  return `<button class="ha-btn" data-analyse-id="${hand.id}">
+    <span class="ha-label">Solver</span>
+    <span class="ha-chevron">›</span>
+  </button>`;
+}
+
+function _showAnalysisModal(hand) {
+  const hero       = hand.heroIdx != null ? hand.players?.[hand.heroIdx] : null;
+  const fmtPos     = p => p === 'BU' ? 'BTN' : (p || '—');
+  const pos        = hero ? fmtPos(hero.pos) : '—';
+  const hasCards   = hero?.cards?.length >= 2 && hero.cards[0] && hero.cards[1];
+  const handStr    = hasCards ? normalizeHand(hero.cards[0], hero.cards[1]) : null;
+  const heroCardsHtml = hasCards ? hero.cards.map(histCardHtml).join('') : '';
+
+  const streetDefs = [
+    { key: 'preflop', label: 'Préflop' },
+    { key: 'flop',    label: 'Flop' },
+    { key: 'turn',    label: 'Turn' },
+    { key: 'river',   label: 'River' },
+  ];
+
+  let streetBlocks = '';
+  let prevKey = null;
+  let flopCards = null; // conservé pour passer aux analyses turn/river
+
+  for (const { key, label } of streetDefs) {
+    const st = hand.streets?.[key];
+    const heroAct = st?.actions?.length ? st.actions.find(a => a.pos === hero?.pos) : null;
+
+    if (heroAct) {
+      const amt       = heroAct.amount ? ` — ${fmtHistAmt(heroAct.amount, hand.bb)}` : '';
+      const actionLbl = `${_actionLabel(heroAct.action)}${amt}`;
+      const boardCards = st.cards?.map(histCardHtml).join('') || '';
+
+      let infoRows    = '';
+      let conseilText = '';
+      let conseilCls  = 'ana-conseil--warn';
+      let sectionCls  = 'ana-section--warn';
+      let headerBadge = '';
+
+      if (key === 'preflop') {
+        const a = analyzeHandPreflop(hand);
+        if (a?.result) {
+          const okCls = a.result.ok === true ? 'ha-ok' : a.result.ok === false ? 'ha-bad' : 'ha-warn';
+          const scenarioTxt = a.result.scenario || '';
+          infoRows = `
+            ${scenarioTxt ? `<div class="ana-row"><span class="ana-action-lbl">Contexte</span><span class="ana-action-val ana-context">${scenarioTxt}</span></div>` : ''}
+            <div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+            <div class="ana-row"><span class="ana-action-lbl">Verdict</span><span class="ha-verdict ${okCls}">${a.result.note}</span></div>`;
+          if (a.result.conseil) {
+            conseilText = a.result.conseil;
+            conseilCls  = a.result.ok === true ? 'ana-conseil--ok' : a.result.ok === false ? 'ana-conseil--bad' : 'ana-conseil--warn';
+            sectionCls  = a.result.ok === true ? 'ana-section--ok' : a.result.ok === false ? 'ana-section--bad' : 'ana-section--warn';
+          }
+        } else {
+          const msg = !hero ? 'Hero non défini' : !hasCards ? 'Cartes non renseignées' : 'Aucune analyse PF disponible';
+          infoRows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+                      <div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div>`;
+        }
+      } else {
+        // Postflop : calcul du pot juste avant l'action Hero
+        let potBefore = hand.streets?.[prevKey]?.potEnd || 0;
+        for (const act of st.actions) {
+          if (act === heroAct) break;
+          potBefore += act.amount || 0;
+        }
+        if (key === 'flop') flopCards = st.cards;
+        // Pour turn et river, on passe les cartes du flop pour classifier la texture
+        const texCards = key === 'flop' ? st.cards : (flopCards || st.cards);
+        const analysis = analyzePostflopAction(key, heroAct, potBefore, st.actions, texCards);
+
+        // Badge de classification (flop uniquement, dans le header de section)
+        if (key === 'flop' && st.cards?.length >= 3) {
+          const flop = analysis?.boardInfo || classifyFlop(st.cards);
+          if (flop) {
+            const badgeCls = flop.category === 'extra-dry' ? 'ana-board-badge--dry'
+                           : flop.category === 'drawy'     ? 'ana-board-badge--drawy'
+                           :                                 'ana-board-badge--mid';
+            headerBadge = `<span class="ana-board-badge ${badgeCls}">${flop.label}</span>`;
+          }
+        }
+
+        infoRows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+                    ${analysis ? `<div class="ana-row"><span class="ana-action-lbl">Sizing</span><span class="ha-verdict ha-warn">${analysis.verdict}</span></div>` : ''}`;
+        if (analysis?.conseil) conseilText = analysis.conseil;
+      }
+
+      const conseilBlock = conseilText
+        ? `<div class="ana-conseil ${conseilCls}"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${conseilText}</p></div>`
+        : '';
+
+      streetBlocks += `
+        <div class="ana-section ${sectionCls}">
+          <div class="ana-section-header">
+            <span class="ana-section-label">${label}</span>
+            ${boardCards ? `<div class="ana-section-cards">${boardCards}</div>` : ''}
+            ${headerBadge}
+          </div>
+          <div class="ana-section-body">
+            <div class="ana-block">${infoRows}</div>
+            ${conseilBlock}
+          </div>
+        </div>`;
+    }
+
+    prevKey = key;
+  }
+
+  if (!streetBlocks) {
+    const msg = !hero ? 'Hero non défini.' : !hasCards ? 'Cartes Hero non renseignées.' : 'Aucune action Hero enregistrée.';
+    streetBlocks = `<div class="ana-section"><div class="ana-section-body"><div class="ana-block"><div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div></div></div></div>`;
+  }
+
+  // Section Ligne de jeu (multibarrel)
+  const mbLine = analyzeMultibarrelLine(hand);
+  const lineSection = mbLine ? `
+    <div class="ana-section ana-section--warn ana-section--line">
+      <div class="ana-section-header">
+        <span class="ana-section-label">Ligne de jeu</span>
+        <span class="ana-line-pattern">${mbLine.pattern.split('').join(' › ')}</span>
+      </div>
+      <div class="ana-section-body">
+        <div class="ana-conseil" style="border-left:none;background:transparent;padding:10px 12px;">
+          <div class="ana-block-title">${mbLine.verdict}</div>
+          <p class="ana-conseil-text">${mbLine.conseil}</p>
+        </div>
+      </div>
+    </div>` : '';
+
+  const html = `
+    <div class="modal-title">Analyse de main</div>
+    <div class="ana-header">
+      <div class="ana-cards">${heroCardsHtml || '<span class="ha-warn" style="font-size:12px">Pas de cartes</span>'}</div>
+      <div class="ana-header-meta">
+        ${handStr ? `<span class="ana-handstr">${handStr}</span>` : ''}
+        <span class="ha-pos">${pos}</span>
+      </div>
+    </div>
+    ${streetBlocks}
+    ${lineSection}
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="ana-close">Retour</button>
+    </div>`;
+
+  showModal(html, {
+    id: 'modal-analysis',
+    onMount: () => {
+      $('ana-close').addEventListener('click', () => { closeModal(); showHistoryModal(); });
+    }
+  });
+}
+
 export function showHistoryModal() {
   const hands = loadAllHands().slice().reverse();
   const count = hands.length;
@@ -126,6 +315,7 @@ export function showHistoryModal() {
             ${boardHtml ? `<div class="history-card-group history-board-group">${boardHtml}</div>` : ''}
           </div>` : '';
 
+        const analysisHtml = _preflopAnalysisHtml(hand);
         return `<div class="history-item ${outcomeClass}">
   <div class="history-item-header">
     <div class="history-meta">
@@ -144,7 +334,10 @@ export function showHistoryModal() {
   <div class="history-hand-content" data-hand-id="${hand.id}">
     ${_handStreetsHtml(hand, 'chips')}
   </div>
-  ${cardsRow}
+  <div id="solver-button">
+    ${cardsRow}
+    ${analysisHtml}
+  </div>
 </div>`;
       }).join('');
 
@@ -235,6 +428,11 @@ export function showHistoryModal() {
 
     document.querySelectorAll('.history-delete-btn').forEach(btn => {
       btn.addEventListener('click', () => { deleteHand(btn.dataset.id); showHistoryModal(); });
+    });
+
+    document.querySelectorAll('.ha-btn').forEach(btn => {
+      const hand = hands.find(h => h.id === btn.dataset.analyseId);
+      if (hand) btn.addEventListener('click', () => _showAnalysisModal(hand));
     });
 
     // Event listeners pour les toggles d'unit par main
