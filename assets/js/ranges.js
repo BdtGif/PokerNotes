@@ -627,6 +627,136 @@ export function analyzeMultibarrelLine(hand) {
   }
 }
 
+// ── Évaluation main Hero vs board (made hand + tirages) ─────────────────────
+
+/**
+ * Évalue la force de la main de Hero sur le board courant.
+ * Détecte: made hand (set, top paire, overpair, double paire, quinte, couleur, full…)
+ * et tirages (flush draw, OESD, ventral). Combine en un tier global.
+ * @param {string[]} heroCards — ex: ['As', '3s']
+ * @param {string[]} board — cartes du board cumulées jusqu'à la street courante (3 à 5)
+ * @returns {{tier:'monster'|'strong'|'medium'|'draw'|'weak-draw'|'weak'|'air', madeDesc:string, draws:string[], desc:string, flushDraw:boolean, oesd:boolean, gutshot:boolean} | null}
+ */
+function _heroHandStrength(heroCards, board) {
+  if (!heroCards || heroCards.length < 2 || !heroCards[0] || !heroCards[1]) return null;
+  if (!board || board.length < 3) return null;
+
+  const heroRanks = heroCards.map(c => _RV[c[0]] || 0);
+  const heroSuits = heroCards.map(c => c[1]);
+  const boardRanks = board.map(c => _RV[c[0]] || 0);
+  const allRanks = [...heroRanks, ...boardRanks];
+  const allSuits = [...heroSuits, ...board.map(c => c[1])];
+
+  const rankCount = {};
+  allRanks.forEach(r => rankCount[r] = (rankCount[r] || 0) + 1);
+  const boardRankCount = {};
+  boardRanks.forEach(r => boardRankCount[r] = (boardRankCount[r] || 0) + 1);
+  const suitCount = {};
+  allSuits.forEach(s => suitCount[s] = (suitCount[s] || 0) + 1);
+
+  const topBoardRank = Math.max(...boardRanks);
+  const pocketPair = heroRanks[0] === heroRanks[1];
+  const counts = Object.values(rankCount).sort((a, b) => b - a);
+  const isQuads   = counts[0] === 4;
+  const isFull    = counts[0] === 3 && counts[1] === 2;
+  const isTrips   = counts[0] === 3 && !isFull;
+  const isTwoPair = counts[0] === 2 && counts[1] === 2;
+  const isPair    = counts[0] === 2 && counts[1] !== 2;
+
+  // Couleur faite (5+ de la même couleur, hero participe)
+  const flushSuit = Object.entries(suitCount).find(([, c]) => c >= 5)?.[0];
+  const hasFlush = !!flushSuit && heroSuits.includes(flushSuit);
+
+  // Quinte (5 rangs consécutifs, hero participe)
+  const uniqRanks = new Set(allRanks);
+  if (uniqRanks.has(14)) uniqRanks.add(1);
+  const heroRankSet = new Set(heroRanks);
+  if (heroRankSet.has(14)) heroRankSet.add(1);
+  let hasStraight = false;
+  for (let top = 14; top >= 5; top--) {
+    if ([top, top-1, top-2, top-3, top-4].every(r => uniqRanks.has(r))
+        && [top, top-1, top-2, top-3, top-4].some(r => heroRankSet.has(r))) {
+      hasStraight = true; break;
+    }
+  }
+
+  const heroPairsTopBoard = !pocketPair && heroRanks.includes(topBoardRank) && boardRankCount[topBoardRank] === 1;
+  const isOverpair = pocketPair && heroRanks[0] > topBoardRank;
+  const isSet = pocketPair && boardRankCount[heroRanks[0]] >= 1;
+  const isHeroTwoPair = !pocketPair && isTwoPair && heroRanks.every(r => rankCount[r] >= 2) && heroRanks[0] !== heroRanks[1];
+
+  let madeDesc = '', tier = 'air';
+  if (isQuads || hasFlush || isFull || hasStraight) {
+    madeDesc = isQuads ? 'Carré' : hasFlush ? 'Couleur' : isFull ? 'Full' : 'Quinte';
+    tier = 'monster';
+  } else if (isSet) {
+    madeDesc = 'Set'; tier = 'strong';
+  } else if (isHeroTwoPair) {
+    madeDesc = 'Double paire'; tier = 'strong';
+  } else if (isTrips) {
+    madeDesc = 'Brelan'; tier = 'strong';
+  } else if (isOverpair) {
+    madeDesc = 'Overpair'; tier = 'strong';
+  } else if (heroPairsTopBoard) {
+    const kicker = heroRanks.find(r => r !== topBoardRank);
+    if (kicker >= 12) { madeDesc = 'Top paire (gros kicker)'; tier = 'strong'; }
+    else              { madeDesc = 'Top paire'; tier = 'medium'; }
+  } else if (isTwoPair) {
+    madeDesc = 'Double paire (board)'; tier = 'medium';
+  } else if (isPair && pocketPair && heroRanks[0] < topBoardRank) {
+    madeDesc = 'Underpair'; tier = 'medium';
+  } else if (isPair && heroRanks.some(r => rankCount[r] === 2)) {
+    const sortedBoard = [...boardRanks].sort((a, b) => b - a);
+    const middleRank = sortedBoard[1];
+    if (heroRanks.includes(middleRank) && rankCount[middleRank] === 2) {
+      madeDesc = 'Paire moyenne'; tier = 'medium';
+    } else {
+      madeDesc = 'Paire faible'; tier = 'weak';
+    }
+  }
+
+  // Tirage couleur (exactement 4 de la même couleur, hero participe)
+  let flushDraw = false;
+  if (!hasFlush) {
+    for (const [s, c] of Object.entries(suitCount)) {
+      if (c === 4 && heroSuits.includes(s)) { flushDraw = true; break; }
+    }
+  }
+
+  // Tirage quinte (bilatéral ou ventral, hero participe)
+  let oesd = false, gutshot = false;
+  if (!hasStraight) {
+    for (let top = 14; top >= 5; top--) {
+      const win = [top, top-1, top-2, top-3, top-4];
+      if (win[4] < 1) break;
+      const present = win.map(r => uniqRanks.has(r));
+      if (present.filter(Boolean).length !== 4) continue;
+      if (!win.some((r, i) => present[i] && heroRankSet.has(r))) continue;
+      const missingIdx = present.indexOf(false);
+      if (missingIdx === 0)       { if (top - 5 >= 2) oesd = true; else gutshot = true; }
+      else if (missingIdx === 4)  { if (top + 1 <= 14) oesd = true; else gutshot = true; }
+      else                        { gutshot = true; }
+    }
+  }
+
+  const draws = [];
+  if (flushDraw) draws.push('tirage couleur');
+  if (oesd) draws.push('tirage quinte bilatéral');
+  else if (gutshot) draws.push('tirage ventral');
+
+  // Combo draw : un made medium + flush draw (ou OESD) devient strong (~50%+ équité)
+  if (tier === 'medium' && (flushDraw || oesd))      tier = 'strong';
+  else if (tier === 'weak'   && (flushDraw || oesd)) tier = 'draw';
+  else if (tier === 'air'    && (flushDraw || oesd)) tier = 'draw';
+  else if (tier === 'air'    && gutshot)             tier = 'weak-draw';
+
+  const desc = madeDesc
+    ? (draws.length ? `${madeDesc} + ${draws.join(' + ')}` : madeDesc)
+    : (draws.length ? draws.join(' + ').replace(/^./, c => c.toUpperCase()) : 'Carte haute, aucun tirage');
+
+  return { tier, madeDesc: madeDesc || 'Carte haute', draws, desc, flushDraw, oesd, gutshot };
+}
+
 // ── Move optimal (calcul indépendant de l'action Hero) ───────────────────────
 
 /**
@@ -775,7 +905,7 @@ export function computeOptimalMove(hand, streetKey) {
     };
   }
 
-  // Hero face à une mise — pot odds
+  // Hero face à une mise — pot odds + force de main hero
   const lastBet = [...actsBefore].reverse().find(a => a.action === 'raise' || a.action === 'allin');
   if (lastBet?.amount > 0) {
     const prevStreetKey = { flop: 'preflop', turn: 'flop', river: 'turn' }[streetKey];
@@ -784,17 +914,71 @@ export function computeOptimalMove(hand, streetKey) {
     const toCall = lastBet.amount;
     if (potBefore > 0) {
       const pctNeed = Math.round(toCall / (potBefore + toCall) * 100);
+
+      // Board cumulé jusqu'à la street courante
+      const board = [];
+      if (hand.streets?.flop?.cards) board.push(...hand.streets.flop.cards);
+      if (streetKey !== 'flop' && hand.streets?.turn?.cards) board.push(...hand.streets.turn.cards);
+      if (streetKey === 'river' && hand.streets?.river?.cards) board.push(...hand.streets.river.cards);
+
+      const hs = _heroHandStrength(hero.cards, board);
+
+      if (hs) {
+        if (hs.tier === 'monster') return {
+          label: `Raise value — ${hs.madeDesc}`, actionType: 'raise',
+          detail: `${hs.desc}. Main quasi-imbattable : misez pour la valeur. Relance recommandée pour construire le pot ; le call est acceptable contre un adversaire en bluff dont vous voulez laisser l'agression continuer. Le prix demandé (${pctNeed}%) est anecdotique ici.`
+        };
+        if (hs.tier === 'strong') return {
+          label: `Call value — ${hs.madeDesc}${hs.draws.length ? ' + tirage' : ''}`, actionType: 'call',
+          detail: `${hs.desc}. Main suffisamment forte pour défendre face à cette mise (${pctNeed}% requis). Call automatique au minimum ; envisagez une relance pour la valeur et la protection${hs.draws.length ? ' — votre équité combinée (made + tirage) est largement au-dessus du prix demandé' : ''}.`
+        };
+        if (hs.tier === 'medium') {
+          if (pctNeed <= 40) return {
+            label: `Call — ${hs.madeDesc} (${pctNeed}% éq. req.)`, actionType: 'call',
+            detail: `${hs.desc}. Prix demandé ${pctNeed}% — votre showdown value et équité directe justifient le call. Évitez les relances spéculatives sans information adverse supplémentaire.`
+          };
+          return {
+            label: `Call serré — ${hs.madeDesc} (${pctNeed}% éq. req.)`, actionType: 'call',
+            detail: `${hs.desc}. Prix élevé (${pctNeed}% requis) mais la main conserve une showdown value réelle. Call défendable contre un range polarisé/large ; envisagez le fold contre un profil très tight qui ne mise gros qu'avec du nutté.`
+          };
+        }
+        if (hs.tier === 'draw') {
+          if (pctNeed <= 35) return {
+            label: `Call — tirage (${pctNeed}% éq. req.)`, actionType: 'call',
+            detail: `${hs.desc}. Pot odds (${pctNeed}%) inférieures ou égales à l'équité directe d'un tirage 8-9 outs (~32-35% par river, ~17-19% par carte). Call profitable, accentué par les implied odds quand vous complétez.`
+          };
+          return {
+            label: `Call selon implied odds — tirage (${pctNeed}% req.)`, actionType: 'call',
+            detail: `${hs.desc}. Prix au-dessus de l'équité directe (${pctNeed}% requis vs ~32-35% par river). Le call dépend des implied odds : valide si l'adversaire paiera large quand le tirage rentre, sinon fold.`
+          };
+        }
+        if (hs.tier === 'weak-draw') return {
+          label: `Fold (sauf implied odds) — ${pctNeed}% req.`, actionType: 'fold',
+          detail: `${hs.desc} (~4 outs ≈ 16% par river). Prix de ${pctNeed}% trop cher sans implied odds claires. Fold par défaut ; call uniquement en stack profond face à un adversaire inducible.`
+        };
+        if (hs.tier === 'weak') return {
+          label: `Fold / call serré — ${hs.madeDesc} (${pctNeed}% req.)`, actionType: 'fold',
+          detail: `${hs.desc}. Showdown value limitée face à cette mise (${pctNeed}% requis). Fold est l'option par défaut ; envisagez le call uniquement contre un profil très agressif/large.`
+        };
+        // air
+        return {
+          label: `Fold — aucune équité (${pctNeed}% req.)`, actionType: 'fold',
+          detail: `${hs.desc}. Sans paire ni tirage, vous n'avez pas l'équité pour défendre (${pctNeed}% requis). Fold systématique sauf bluff catch très spécifique avec read fort sur l'adversaire.`
+        };
+      }
+
+      // Fallback (pas de cartes hero ou pas de board) — pot odds seul
       if (pctNeed <= 25) return {
         label: `Call (éq. ≥${pctNeed}%)`, actionType: 'call',
-        detail: `Excellent size : seulement ${pctNeed}% d'équité requise. Défendez large — fold uniquement si vous n'avez aucun out ni showdown value.`
+        detail: `Excellent prix : seulement ${pctNeed}% d'équité requise. Défendez large — fold uniquement si vous n'avez aucun out ni showdown value.`
       };
       if (pctNeed <= 40) return {
         label: `Call si éq. ≥${pctNeed}%`, actionType: 'call',
-        detail: `size raisonnable (${pctNeed}% requis). Call justifié avec top pair+, draws forts ou implied odds. Fold avec les mains faibles sans potentiel.`
+        detail: `Prix raisonnable (${pctNeed}% requis). Call justifié avec top pair+, draws forts ou implied odds. Fold avec les mains faibles sans potentiel.`
       };
       return {
         label: `Fold / éq. ≥${pctNeed}%`, actionType: 'fold',
-        detail: `size élevé (${pctNeed}% requis). Le fold est optimal avec les mains sans potentiel. Continuez uniquement avec des mains très fortes.`
+        detail: `Prix élevé (${pctNeed}% requis). Le fold est optimal avec les mains sans potentiel. Continuez uniquement avec des mains très fortes.`
       };
     }
   }
