@@ -327,3 +327,25 @@ display: flex; align-items: center; gap: 6px;justify-content: space-between;
   box-shadow: 0 4px 16px rgba(0,0,0,0.5);
 }
 .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- FIX SCROLL MOBILE MODALE ANALYSE ---------- */
+#modal-analysis {
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* hauteur max écran mobile */
+  max-height: 100dvh;
+
+  /* scroll fluide iOS */
+  -webkit-overflow-scrolling: touch;
+
+  /* évite le blocage flex */
+  min-height: 0;
+}
+
+/* si la modale est dans un conteneur flex */
+.modal-analysis-content,
+.modal-body,
+.modal-content {
+  min-height: 0;
+}
