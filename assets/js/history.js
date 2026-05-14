@@ -4,6 +4,7 @@ import { $, fmtChips, cardLabel, showToast } from './utils.js';
 import { state } from './state.js';
 import { loadAllHands, saveAllHands, deleteHand, loadPseudo, savePseudo } from './storage.js';
 import { showModal, closeModal } from './ui.js';
+import { analyzeHandPreflop, analyzePostflopAction, normalizeHand } from './ranges.js';
 
 function fmtHistAmt(n, bb) {
   if (state.stackUnit === 'bb' && bb) return (n / bb).toFixed(1) + ' bb';
@@ -90,6 +91,148 @@ function _handStreetsHtml(hand, unit = 'chips') {
   return parts.length ? `<div class="hs-streets">${parts.join('')}</div>` : '';
 }
 
+function _actionLabel(action) {
+  return { raise:'Open raise', allin:'All-in', call:'Call', fold:'Fold', check:'Check' }[action] || action || '—';
+}
+
+function _preflopAnalysisHtml(hand) {
+  const hero = hand.heroIdx != null ? hand.players?.[hand.heroIdx] : null;
+  const posLabel = p => p === 'BU' ? 'BTN' : (p || '—');
+
+  if (!hero) {
+    return `<button class="ha-btn" data-analyse-id="${hand.id}">
+      <span class="ha-label">Solver</span>
+      <span class="ha-chevron">›</span>
+    </button>`;
+  }
+
+  const hasCards = hero.cards && hero.cards.length >= 2 && hero.cards[0] && hero.cards[1];
+  const pos = posLabel(hero.pos);
+
+  if (!hasCards) {
+    return `<button class="ha-btn" data-analyse-id="${hand.id}">
+      <span class="ha-label">Solver</span>
+      <span class="ha-chevron">›</span>
+    </button>`;
+  }
+
+  const handStr = normalizeHand(hero.cards[0], hero.cards[1]);
+  const a = analyzeHandPreflop(hand);
+
+  if (!a || !a.result) {
+    return `<button class="ha-btn" data-analyse-id="${hand.id}">
+      <span class="ha-label">Solver</span>
+      <span class="ha-chevron">›</span>
+    </button>`;
+  }
+
+  const okCls = a.result.ok === true ? 'ha-ok' : a.result.ok === false ? 'ha-bad' : 'ha-warn';
+  return `<button class="ha-btn" data-analyse-id="${hand.id}">
+    <span class="ha-label">Solver</span>
+    <span class="ha-chevron">›</span>
+  </button>`;
+}
+
+function _showAnalysisModal(hand) {
+  const hero       = hand.heroIdx != null ? hand.players?.[hand.heroIdx] : null;
+  const fmtPos     = p => p === 'BU' ? 'BTN' : (p || '—');
+  const pos        = hero ? fmtPos(hero.pos) : '—';
+  const hasCards   = hero?.cards?.length >= 2 && hero.cards[0] && hero.cards[1];
+  const handStr    = hasCards ? normalizeHand(hero.cards[0], hero.cards[1]) : null;
+  const heroCardsHtml = hasCards ? hero.cards.map(histCardHtml).join('') : '';
+
+  const streetDefs = [
+    { key: 'preflop', label: 'Préflop' },
+    { key: 'flop',    label: 'Flop' },
+    { key: 'turn',    label: 'Turn' },
+    { key: 'river',   label: 'River' },
+  ];
+
+  let streetBlocks = '';
+  let prevKey = null;
+
+  for (const { key, label } of streetDefs) {
+    const st = hand.streets?.[key];
+    const heroAct = st?.actions?.length ? st.actions.find(a => a.pos === hero?.pos) : null;
+
+    if (heroAct) {
+      const amt = heroAct.amount ? ` — ${fmtHistAmt(heroAct.amount, hand.bb)}` : '';
+      const actionLbl = `${_actionLabel(heroAct.action)}${amt}`;
+      const boardHtml = st.cards?.map(histCardHtml).join('') || '';
+
+      let rows = '';
+      let conseilHtml = '';
+
+      if (key === 'preflop') {
+        const a = analyzeHandPreflop(hand);
+        if (a?.result) {
+          const okCls = a.result.ok === true ? 'ha-ok' : a.result.ok === false ? 'ha-bad' : 'ha-warn';
+          const scenarioTxt = a.result.scenario || '';
+          rows = `
+            ${scenarioTxt ? `<div class="ana-row"><span class="ana-action-lbl">Contexte</span><span class="ana-action-val ana-context">${scenarioTxt}</span></div>` : ''}
+            <div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+            <div class="ana-row"><span class="ana-action-lbl">Verdict</span><span class="ha-verdict ${okCls}">${a.result.note}</span></div>`;
+          if (a.result.conseil) {
+            const cls = a.result.ok === true ? 'ana-conseil--ok' : a.result.ok === false ? 'ana-conseil--bad' : 'ana-conseil--warn';
+            conseilHtml = `<div class="ana-block ana-conseil ${cls}"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${a.result.conseil}</p></div>`;
+          }
+        } else {
+          const msg = !hero ? 'Hero non défini' : !hasCards ? 'Cartes non renseignées' : 'Aucune analyse PF disponible';
+          rows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+                  <div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div>`;
+        }
+      } else {
+        // Postflop : calcul du pot juste avant l'action Hero
+        let potBefore = hand.streets?.[prevKey]?.potEnd || 0;
+        for (const act of st.actions) {
+          if (act === heroAct) break;
+          potBefore += act.amount || 0;
+        }
+        const analysis = analyzePostflopAction(key, heroAct, potBefore, st.actions);
+        rows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+                ${analysis ? `<div class="ana-row"><span class="ana-action-lbl">Sizing</span><span class="ha-verdict ha-warn">${analysis.verdict}</span></div>` : ''}`;
+        if (analysis?.conseil) {
+          conseilHtml = `<div class="ana-block ana-conseil ana-conseil--warn"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${analysis.conseil}</p></div>`;
+        }
+      }
+
+      streetBlocks += `<div class="ana-block">
+        <div class="ana-block-title">${label}</div>
+        ${boardHtml ? `<div class="ana-board-row">${boardHtml}</div>` : ''}
+        ${rows}
+      </div>${conseilHtml}`;
+    }
+
+    prevKey = key;
+  }
+
+  if (!streetBlocks) {
+    const msg = !hero ? 'Hero non défini.' : !hasCards ? 'Cartes Hero non renseignées.' : 'Aucune action Hero enregistrée.';
+    streetBlocks = `<div class="ana-block"><div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div></div>`;
+  }
+
+  const html = `
+    <div class="modal-title">Analyse de main</div>
+    <div class="ana-header">
+      <div class="ana-cards">${heroCardsHtml || '<span class="ha-warn" style="font-size:12px">Pas de cartes</span>'}</div>
+      <div class="ana-header-meta">
+        ${handStr ? `<span class="ana-handstr">${handStr}</span>` : ''}
+        <span class="ha-pos">${pos}</span>
+      </div>
+    </div>
+    ${streetBlocks}
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="ana-close">Retour</button>
+    </div>`;
+
+  showModal(html, {
+    id: 'modal-analysis',
+    onMount: () => {
+      $('ana-close').addEventListener('click', () => { closeModal(); showHistoryModal(); });
+    }
+  });
+}
+
 export function showHistoryModal() {
   const hands = loadAllHands().slice().reverse();
   const count = hands.length;
@@ -126,6 +269,7 @@ export function showHistoryModal() {
             ${boardHtml ? `<div class="history-card-group history-board-group">${boardHtml}</div>` : ''}
           </div>` : '';
 
+        const analysisHtml = _preflopAnalysisHtml(hand);
         return `<div class="history-item ${outcomeClass}">
   <div class="history-item-header">
     <div class="history-meta">
@@ -144,7 +288,10 @@ export function showHistoryModal() {
   <div class="history-hand-content" data-hand-id="${hand.id}">
     ${_handStreetsHtml(hand, 'chips')}
   </div>
-  ${cardsRow}
+  <div id="solver-button">
+    ${cardsRow}
+    ${analysisHtml}
+  </div>
 </div>`;
       }).join('');
 
@@ -235,6 +382,11 @@ export function showHistoryModal() {
 
     document.querySelectorAll('.history-delete-btn').forEach(btn => {
       btn.addEventListener('click', () => { deleteHand(btn.dataset.id); showHistoryModal(); });
+    });
+
+    document.querySelectorAll('.ha-btn').forEach(btn => {
+      const hand = hands.find(h => h.id === btn.dataset.analyseId);
+      if (hand) btn.addEventListener('click', () => _showAnalysisModal(hand));
     });
 
     // Event listeners pour les toggles d'unit par main

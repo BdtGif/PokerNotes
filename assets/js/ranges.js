@@ -1,0 +1,422 @@
+/* ranges.js — Range data extrait du PDF Ranges.pdf */
+
+const _R = 'AKQJT98765432';
+const _RI = Object.fromEntries([..._R].map((r, i) => [r, i]));
+
+/** Normalise deux cartes en string canonique ('Ah','Kd' → 'AKo') */
+export function normalizeHand(c1, c2) {
+  if (!c1 || !c2 || c1.length < 2 || c2.length < 2) return null;
+  const r1 = c1[0], r2 = c2[0], s1 = c1[1], s2 = c2[1];
+  if (r1 === r2) return r1 + r2;
+  const [hi, lo, hs, ls] = _RI[r1] < _RI[r2] ? [r1,r2,s1,s2] : [r2,r1,s2,s1];
+  return hi + lo + (hs === ls ? 's' : 'o');
+}
+
+// ── Open ranges (page 2 du PDF) ───────────────────────────────────────────
+
+// BTN référence (~40%) — toutes les cellules colorées non-vertes
+const _BTN_OPEN = new Set(['22','33','44','54s','55','64s','65s','66','75s','76s','77',
+  '85s','86s','87s','88','95s','96s','97s','98o','98s','99',
+  'A2o','A2s','A3o','A3s','A4o','A4s','A5o','A5s','A6o','A6s','A7o','A7s',
+  'A8o','A8s','A9o','A9s','AA','AJo','AJs','AKo','AKs','AQo','AQs','ATo','ATs',
+  'J4s','J5s','J6s','J7s','J8o','J8s','J9o','J9s','JJ','JTo','JTs',
+  'K2s','K3s','K4s','K5s','K6s','K7o','K7s','K8o','K8s','K9o','K9s',
+  'KJo','KJs','KK','KQo','KQs','KTo','KTs',
+  'Q2s','Q3s','Q4s','Q5s','Q6s','Q7s','Q8o','Q8s','Q9o','Q9s','QJo','QJs','QQ','QTo','QTs',
+  'T5s','T6s','T7s','T8o','T8s','T9o','T9s','TT']);
+
+// CO (~26%) — BTN sans les mains les plus larges
+const _CO_OPEN = new Set([..._BTN_OPEN].filter(h =>
+  !['22','75s','98o','A2o','A3o','A4o','A5o','A6o',
+    'J5s','J6s','J8o','J9o','K2s','K7o','K8o',
+    'Q3s','Q4s','Q5s','Q8o','Q9o','T5s','T6s','T8o'].includes(h)));
+
+// HJ (~22%) — CO sans les mains larges suivantes
+const _HJ_OPEN = new Set([..._CO_OPEN].filter(h =>
+  !['33','54s','64s','86s','A7o','A8o','J4s','J7s','K3s','K4s','Q7s','T7s'].includes(h)));
+
+// EP/LJ (~19%) — HJ sans les mains borderline
+const _EP_OPEN = new Set([..._HJ_OPEN].filter(h =>
+  !['55','65s','85s','95s','96s','K5s','K9o','Q2s','Q6s','T9o',
+    '44','76s','K6s','K7s'].includes(h)));
+
+// Losification BTN (mains ajoutées en spot favorable)
+const _OPEN_LOSIF = new Set(['J3s','J2s','T4s','94s','84s','74s','63s','53s','43s',
+  'J7o','T7o','97o','87o','86o','76o','Q7o','K6o','Q6o','K5o','K4o']);
+
+// SB open en BvB (page 8 — Early game)
+const _SB_OPEN = new Set(['AA','KK','QQ','JJ','TT','99',
+  'AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s',
+  'AKo','AQo','AJo','ATo',
+  'KQs','KJs','KTs','K9s','K8s','K7s','K6s','K5s','K4s','K3s','K2s',
+  'KQo','KJo','KTo','K9o','K8o','K7o','K6o','K5o','K4o',
+  'QJs','QTs','Q9s','Q8s','Q7s','Q6s','Q5s',
+  'QJo','QTo','Q9o','Q8o',
+  'JTs','J9s','J8s','J7s','J6s','JTo','J9o',
+  'T9s','T8s','T7s','T6s','T9o','T8o',
+  '98s','97s','96s','87s','86s','85s','76s','75s','74s',
+  '65s','64s','63s','54s','53s','52s','43s','42s']);
+
+// ── Réponse à un open (Call/3-bet) ────────────────────────────────────────
+
+// 3-bet value (commun à toutes les positions)
+const _3BET_VALUE = new Set(['AA','KK','QQ','JJ','AKs','AKo']);
+
+// BTN face à un open (page 3)
+const _BTN_3BET_BLUFF = new Set(['A4s','Q9s','J9s','87s','76s']);
+const _BTN_CALL = new Set(['ATs','AQs','AQo','AJo','AJs','A5s','A6s','A7s','A8s','A9s',
+  'KQs','KJs','KTs','K9s','KQo','KJo','K8s',
+  'QJs','QTs','QJo','JTs','T9s','T8s',
+  'TT','99','88','77','66','55','44','98s']);
+
+// CO face à un open (page 4)
+const _CO_3BET_BLUFF = new Set(['J9s','98s']);
+const _CO_CALL = new Set(['AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A3s',
+  'KQs','KJs','KTs','KQo',
+  'QJs','QTs','JTs','TT','99','88','77','66','55','AQo','T9s']);
+
+// HJ face à un open (page 5)
+const _HJ_3BET_BLUFF = new Set([]);
+const _HJ_CALL = new Set(['AQs','AJs','ATs','A9s','A8s','A7s',
+  'KQs','KJs','KTs','KQo',
+  'QJs','QTs','JTs','TT','99','88','77','66','55','AQo']);
+
+// SB face à un open BTN (page 6)
+const _SB_3BET_BLUFF = new Set(['A6s','TT','QTs','QJs','KTs','KQo','AJo','JTs','T9s','77','66']);
+const _SB_CALL = new Set(['AQs','AJs','ATs','A9s','A8s','A7s',
+  'KQs','KJs','K8s','K9s','J9s','J8s','T8s','T9s',
+  '99','88','87s','98s','AQo','KJo','KTo','QJo','55','Q9s']);
+
+// ── Défense BB (page 7) ───────────────────────────────────────────────────
+
+// Call dans n'importe quel spot (mains fortes)
+const _BB_ALWAYS = new Set(['42s','53s','63s','64s','74s','75s','85s','86s','87s',
+  '95s','96s','97s','98s',
+  'A2s','A3s','A4o','A4s','A5o','A5s','A6o','A6s','A7o','A7s',
+  'A8o','A8s','A9o','A9s','AA','AJo','AJs','AKo','AKs','AQo','AQs','ATo','ATs',
+  'J6s','J7s','J8s','J9s','JJ','JTo','JTs',
+  'K2s','K3s','K4s','K5s','K6s','K7s','K8s','K9s',
+  'KJo','KJs','KK','KQo','KQs','KTo','KTs',
+  'Q5s','Q6s','Q7s','Q8s','Q9s','QJo','QJs','QQ','QTo','QTs',
+  'T6s','T7s','T8s','T9s','TT']);
+
+// Call en spot mitigé ou rêvé
+const _BB_MITIGE = new Set(['52s','62s','72s','73s','83s','84s','88','94s','99',
+  'J2s','J3s','J4s','J5s','J9o','K8o','K9o',
+  'Q2s','Q3s','Q4s','Q9o','T3s','T4s','T5s','T9o']);
+
+// Call uniquement en spot rêvé
+const _BB_REVE = new Set(['54s','55','65s','66','76s','77','82s','87o','92s','93s',
+  '98o','J8o','K4o','K5o','K6o','K7o','Q6o','Q7o','Q8o','T2s','T8o']);
+
+// ── Fonctions d'analyse ───────────────────────────────────────────────────
+
+function _openRange(pos) {
+  switch (pos) {
+    case 'BU': return _BTN_OPEN;
+    case 'CO': return _CO_OPEN;
+    case 'HJ': return _HJ_OPEN;
+    case 'SB': return _SB_OPEN;
+    default:   return _EP_OPEN; // UTG, UTG+1, UTG+2, MP, LJ
+  }
+}
+
+function _analyzeOpen(hand, pos, action) {
+  const range = _openRange(pos);
+  const posLabel = pos === 'BU' ? 'BTN' : pos;
+  const inRef   = range.has(hand);
+  const inLosif = _OPEN_LOSIF.has(hand);
+  const scenario = `Open premier à parler (${posLabel})`;
+
+  if (action === 'raise' || action === 'allin') {
+    if (inRef) return {
+      ok: true, note: `Open ✓ — range ${posLabel}`, scenario,
+      conseil: `${hand} est dans le range d'open ${posLabel}. L'open raise est l'action optimale : cette main génère une EV positive depuis cette position et donne l'initiative pour la suite. Continuez à ouvrir systématiquement les mains de votre range — la cohérence de fréquence est clé.`
+    };
+    if (inLosif) return {
+      ok: true, note: `Open ✓ — range élargi (spot +)`, scenario,
+      conseil: `${hand} est dans le range étendu (spot favorable). Avec un avantage positionnel maximal ou face à des adversaires passifs, cette main devient rentable à ouvrir. Réservez-la aux situations idéales : BTN dernier à parler, table avec peu de 3-betteurs, ou stack adapté.`
+    };
+    return {
+      ok: false, note: `Open ✗ — hors range ${posLabel}`, scenario,
+      conseil: `${hand} est hors range d'open depuis ${posLabel}. Cette main n'a pas assez d'équité et de playabilité pour un open profitable ici. Ouvrir des mains hors range nuit à votre image et offre à vos adversaires des situations d'exploitation. Préférez un fold et attendez une main dans votre range.`
+    };
+  }
+  if (action === 'fold') {
+    if (inRef) return {
+      ok: false, note: `Fold ✗ — main dans le range ${posLabel}`, scenario,
+      conseil: `${hand} est dans le range d'open ${posLabel}. Vous auriez dû open raise : abandonner les blinds gratuitement avec une main profitable est une erreur de fréquence. Identifiez pourquoi vous avez foldé (peur des relances ? manque de confiance ?) et travaillez votre range d'ouverture depuis cette position.`
+    };
+    if (inLosif) return {
+      ok: null, note: `Fold ✓/⚠ — valide sauf en spot rêvé`, scenario,
+      conseil: `${hand} est dans le range étendu (spot favorable). Le fold est acceptable ici mais en situation idéale — à la BTN face à des adversaires passifs — cette main devient profitable à ouvrir. Gardez-la dans votre arsenal pour les spots à haute EV uniquement.`
+    };
+    return {
+      ok: true, note: `Fold ✓`, scenario,
+      conseil: `${hand} est hors range d'open depuis ${posLabel}. Le fold est la décision correcte. Cette main n'a pas assez de potentiel postflop ni d'équité crue pour justifier une ouverture depuis cette position. Attendez une meilleure main.`
+    };
+  }
+  return null;
+}
+
+function _analyzeVsRaise(hand, heroPos, action, raiserPos) {
+  const is3bv  = _3BET_VALUE.has(hand);
+  let bluffSet, callSet;
+  switch (heroPos) {
+    case 'BU': bluffSet = _BTN_3BET_BLUFF; callSet = _BTN_CALL; break;
+    case 'CO': bluffSet = _CO_3BET_BLUFF;  callSet = _CO_CALL;  break;
+    case 'HJ': bluffSet = _HJ_3BET_BLUFF;  callSet = _HJ_CALL;  break;
+    case 'SB': bluffSet = _SB_3BET_BLUFF;  callSet = _SB_CALL;  break;
+    default:   bluffSet = new Set();        callSet = new Set();
+  }
+  const is3bb  = bluffSet.has(hand);
+  const isCall = callSet.has(hand);
+  const posLabel    = heroPos === 'BU' ? 'BTN' : heroPos;
+  const raiserLabel = raiserPos === 'BU' ? 'BTN' : raiserPos;
+  const scenario = `Face à un open ${raiserLabel} depuis ${posLabel}`;
+
+  if (action === 'raise' || action === 'allin') {
+    if (is3bv) return {
+      ok: true, note: '3-bet value ✓', scenario,
+      conseil: `${hand} est une main top 4% (range 3-bet value : AA, KK, QQ, JJ, AKs/o). Le 3-bet est obligatoire : vous construisez le pot avec la meilleure main et vous forcez l'adversaire à une décision difficile immédiatement. Ne slowplayez pas ces mains — le call perd de la valeur en permettant aux mains dominées de réaliser leur équité gratuitement.`
+    };
+    if (is3bb) return {
+      ok: true, note: '3-bet bluff ✓', scenario,
+      conseil: `${hand} est dans le range de 3-bet bluff depuis ${posLabel}. Cette main est idéale comme bluff : elle combine connectivité ou bloqueurs avec un bon potentiel postflop. Le 3-bet crée de la pression, donne l'initiative et peut décrocher le pot immédiatement face aux mains marginales de l'openeur.`
+    };
+    if (isCall) return {
+      ok: false, note: '3-bet ✗ — call recommandé', scenario,
+      conseil: `${hand} est dans le range de call depuis ${posLabel}, pas de 3-bet. Le 3-bet ici est trop thin : vous n'avez pas assez de valeur pour jouer un gros pot 3-bet ni les caractéristiques d'un bon bluff. Préférez le call — cette main réalise bien son équité passivement et vous évitez d'être 4-betté et obligé de folder.`
+    };
+    return {
+      ok: false, note: '3-bet ✗ — fold recommandé', scenario,
+      conseil: `${hand} est hors range de jeu depuis ${posLabel} face à un open ${raiserLabel}. Le 3-bet serait une erreur : sans valeur ni potentiel de bluff, vous créez un gros pot avec une main désavantagée. La décision optimale est le fold.`
+    };
+  }
+  if (action === 'call') {
+    if (is3bv) return {
+      ok: false, note: 'Call ✗ — 3-bet value recommandé', scenario,
+      conseil: `${hand} (top 4%) doit toujours être 3-bettée pour sa valeur. Le call ici est une erreur de sizing : vous permettez à des mains comme AQ, KQ, JJ de voir un flop à prix réduit avec une chance de vous battre. Le 3-bet construit un gros pot avec l'avantage dès le départ.`
+    };
+    if (is3bb) return {
+      ok: false, note: 'Call ✗ — 3-bet bluff recommandé', scenario,
+      conseil: `${hand} est dans le range de 3-bet bluff depuis ${posLabel}. Le call n'exploite pas le potentiel de cette main — ses caractéristiques (bloqueurs ou connectivité) en font un excellent bluff, pas un cold-call passif. Un 3-bet ici ajoute de la pression et peut décrocher le pot sans même aller au flop.`
+    };
+    if (isCall) return {
+      ok: true, note: 'Call ✓', scenario,
+      conseil: `${hand} est dans le range de call depuis ${posLabel}. Le call est l'action optimale : cette main n'est pas assez forte pour 3-better (risque d'être dominée ou de jouer un gros pot OOP) mais a assez de potentiel postflop pour justifier l'investissement. Jouez de manière réactive et exploitez votre position.`
+    };
+    return {
+      ok: false, note: 'Call ✗ — fold recommandé', scenario,
+      conseil: `${hand} est hors range de call depuis ${posLabel} face à un open ${raiserLabel}. Le call perd de l'EV : vous n'avez pas assez de potentiel postflop pour justifier l'investissement contre un range d'open défini. Le fold préserve votre stack pour de meilleures situations.`
+    };
+  }
+  if (action === 'fold') {
+    if (is3bv || is3bb || isCall) return {
+      ok: false, note: 'Fold ✗ — main jouable (call ou 3-bet)', scenario,
+      conseil: `${hand} est une main jouable depuis ${posLabel} : ${is3bv ? 'top 4% — 3-bet value obligatoire' : is3bb ? '3-bet bluff recommandé' : 'call recommandé face à cet open'}. Le fold abandonne de l'EV positive. Revoyez cette situation et identifiez ce qui vous a bloqué — peur du stack-off ou incertitude sur votre range ?`
+    };
+    return {
+      ok: true, note: 'Fold ✓', scenario,
+      conseil: `${hand} est hors range de défense depuis ${posLabel} face à un open ${raiserLabel}. Le fold est correct : sans potentiel de call ni de 3-bet profitable, vous évitez les situations désavantageuses avec une main faible face au range d'open de l'adversaire.`
+    };
+  }
+  return null;
+}
+
+const _EARLY_POS = new Set(['UTG','UTG+1','UTG+2','MP','LJ']);
+
+function _analyzeBBDefense(hand, action, raiserPos) {
+  const isAlways = _BB_ALWAYS.has(hand);
+  const isMitige = _BB_MITIGE.has(hand);
+  const isReve   = _BB_REVE.has(hand);
+  const raiserLabel = raiserPos === 'BU' ? 'BTN' : raiserPos;
+  const spotLabel = _EARLY_POS.has(raiserPos) ? 'rêvé (EP)' : raiserPos === 'BU' ? 'mitigé (BTN)' : 'mitigé';
+  const scenario = `Défense BB face à un open ${raiserLabel}`;
+
+  if (action === 'call' || action === 'check') {
+    if (isAlways) return {
+      ok: true, note: 'Défense BB ✓ — main forte', scenario,
+      conseil: `${hand} est dans le range de défense systématique du BB, quelle que soit la position de l'openeur. Défendre est l'action optimale : vous bénéficiez du prix des blinds déjà investies et cette main a assez d'équité ou de potentiel postflop pour compenser le désavantage positionnel. Continuez à défendre ces mains systématiquement.`
+    };
+    if (isMitige) return {
+      ok: null, note: `Défense BB ⚠ — spot ${spotLabel} recommandé`, scenario,
+      conseil: `${hand} est dans le range de défense mitigée du BB. Face à un open ${raiserLabel}, la défense est acceptable mais borderline. Ces mains défendent mieux face aux opens larges (BTN, CO) où l'adversaire a beaucoup de bluffs. Face à EP dont le range est plus tight, le fold devient plus justifié car vous serez souvent dominé.`
+    };
+    if (isReve) return {
+      ok: null, note: 'Défense BB ⚠ — spot rêvé uniquement', scenario,
+      conseil: `${hand} ne défend que dans les meilleurs spots : face à un open BTN très large ou un CO passif. Face à ${raiserLabel}, le call est marginal — cette main a peu d'équité contre un range tight et risque d'être souvent dominée. Envisagez un fold face aux positions early et réservez cette défense aux situations idéales.`
+    };
+    return {
+      ok: false, note: 'Défense BB ✗ — fold recommandé', scenario,
+      conseil: `${hand} est hors range de défense BB même avec le prix des blinds. Face à ${raiserLabel}, cette main n'a pas assez d'équité pour compenser le désavantage positionnel. Le fold préserve votre stack et évite les situations où vous jouez OOP avec une main faible contre un range défini.`
+    };
+  }
+  if (action === 'fold') {
+    if (isAlways) return {
+      ok: false, note: 'Fold ✗ — main forte, défense recommandée', scenario,
+      conseil: `${hand} est dans le range de défense systématique du BB — vous auriez dû défendre. Le BB est la seule position avec un investissement forcé qui rend la défense correcte avec un grand nombre de mains. Ici le fold abandonne de l'EV : vous payez déjà 0.5 bb pour un pot où votre main est rentable à jouer.`
+    };
+    if (isMitige && !_EARLY_POS.has(raiserPos)) return {
+      ok: null, note: 'Fold ⚠ — acceptable en spot cata', scenario,
+      conseil: `${hand} est une main borderline en défense BB. Le fold face à ${raiserLabel} est acceptable mais pas optimal : face à un range large (BTN/CO), cette main avait de l'EV positive en défendant. Analysez le profil de l'openeur — face à un joueur loose, la défense était probablement la bonne décision.`
+    };
+    return {
+      ok: true, note: 'Fold ✓', scenario,
+      conseil: `${hand} est hors range de défense BB face à ${raiserLabel}. Le fold est la décision correcte. Malgré le prix des blinds, cette main n'a pas assez d'équité ou de potentiel postflop pour compenser le désavantage positionnel permanent que vous aurez tout au long de la main.`
+    };
+  }
+  if (action === 'raise') {
+    if (_3BET_VALUE.has(hand)) return {
+      ok: true, note: '3-bet value ✓ depuis BB', scenario,
+      conseil: `${hand} (top 4%) doit être 3-bettée même depuis le BB. Le 3-bet construit le pot avec la meilleure main et transforme le désavantage positionnel en avantage d'initiative. Ne slowplayez pas les mains premium — laissez l'adversaire prendre sa décision avec une information incomplète dès le préflop.`
+    };
+    return {
+      ok: null, note: '3-bet depuis BB', scenario,
+      conseil: `Un 3-bet depuis le BB avec ${hand} est une ligne non standard. Le range de 3-bet BB se concentre sur les mains top 4% (AA, KK, QQ, JJ, AKs/o). Les autres mains jouables préfèrent généralement appeler (si dans le range de défense) ou folder (si trop faibles), sauf profil très exploitable de l'adversaire.`
+    };
+  }
+  return null;
+}
+
+/**
+ * Analyse l'action préflop de Hero et retourne un verdict.
+ * @param {Object} hand — enregistrement de main issu de storage.js
+ * @returns {{ handStr, heroPos, heroAction, result } | null}
+ */
+export function analyzeHandPreflop(hand) {
+  const hero = hand.players?.[hand.heroIdx];
+  if (hand.heroIdx == null || !hero) return null;
+  if (!hero.cards || hero.cards.length < 2 || !hero.cards[0] || !hero.cards[1]) return null;
+
+  const handStr = normalizeHand(hero.cards[0], hero.cards[1]);
+  if (!handStr) return null;
+
+  const heroPos    = hero.pos;
+  const pfActions  = hand.streets?.preflop?.actions || [];
+
+  const heroActIdx = pfActions.findIndex(a => a.pos === heroPos);
+  if (heroActIdx === -1) return { handStr, heroPos, heroAction: null, result: null };
+
+  const heroAction  = pfActions[heroActIdx];
+  const actsBefore  = pfActions.slice(0, heroActIdx);
+  const raiseBefore = [...actsBefore].reverse().find(a => a.action === 'raise' || a.action === 'allin');
+
+  let result;
+  if (!raiseBefore) {
+    result = _analyzeOpen(handStr, heroPos, heroAction.action);
+  } else if (heroPos === 'BB') {
+    result = _analyzeBBDefense(handStr, heroAction.action, raiseBefore.pos);
+  } else {
+    result = _analyzeVsRaise(handStr, heroPos, heroAction.action, raiseBefore.pos);
+  }
+
+  return { handStr, heroPos, heroAction: heroAction.action, result };
+}
+
+/**
+ * Analyse l'action postflop de Hero sur une street donnée.
+ * @param {string} streetKey — 'flop' | 'turn' | 'river'
+ * @param {Object} heroAction — {pos, action, amount}
+ * @param {number} potBeforeHero — pot juste avant l'action de Hero
+ * @param {Array}  streetActions — toutes les actions de la street
+ * @returns {{ verdict: string, conseil: string } | null}
+ */
+export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, streetActions) {
+  const action   = heroAction.action;
+  const amount   = heroAction.amount || 0;
+  const heroIdx  = streetActions.indexOf(heroAction);
+  const actsBefore = streetActions.slice(0, heroIdx);
+  const hasBetBefore = actsBefore.some(a => a.action === 'raise' || a.action === 'allin');
+  const lbl = streetKey === 'flop' ? 'Flop' : streetKey === 'turn' ? 'Turn' : 'River';
+
+  if (action === 'raise' || action === 'allin') {
+    const isBet = !hasBetBefore;
+    const v = isBet ? 'Mise' : 'Relance';
+
+    if (action === 'allin') {
+      return {
+        verdict: 'All-in',
+        conseil: `Shove au ${lbl}. Cette ligne représente soit une main très forte (value), soit un bluff total. Pour être équilibré, votre range d'all-in doit combiner des nuts et des bluffs sélectionnés. Vérifiez que votre main justifie cette pression extrême selon le board et le profil de votre adversaire.`
+      };
+    }
+
+    const ratio = potBeforeHero > 0 ? amount / potBeforeHero : 0;
+    let verdict, conseil;
+
+    if (ratio <= 0.29) {
+      verdict = `${v} petite (${Math.round(ratio * 100)}% pot)`;
+      conseil = `${v} petite à ${Math.round(ratio * 100)}% du pot. Adapté aux blocker bets, protection sur boards secs ou thin value. Cette taille donne un bon prix à l'adversaire — assurez-vous d'avoir une raison stratégique précise. Avec des mains moyennes, une petite mise peut signaler de la faiblesse et provoquer des floats ou re-raises.`;
+    } else if (ratio <= 0.45) {
+      verdict = `${v} ~1/3 pot (${Math.round(ratio * 100)}%)`;
+      conseil = `Sizing 1/3 pot standard. Adapté pour un range large et polarisé sur boards favorables. Donne un prix raisonnable à l'adversaire tout en récupérant de la valeur. Utilisez cette taille avec un mix équilibré de value hands et de bluffs bien choisis.`;
+    } else if (ratio <= 0.59) {
+      verdict = `${v} ~1/2 pot (${Math.round(ratio * 100)}%)`;
+      conseil = `Mise 1/2 pot : taille équilibrée, bonne par défaut sur de nombreux boards. Elle protège vos mains fortes contre les draws et extrait de la valeur. Bien adaptée aux boards de texture moyenne avec des flush ou straight draws possibles.`;
+    } else if (ratio <= 0.79) {
+      verdict = `${v} 2/3 pot (${Math.round(ratio * 100)}%)`;
+      conseil = `Mise 2/3 pot : taille agressive qui met la pression sur les mains moyennes et les draws marginaux. Adaptée aux boards texturés ou pour protéger une main forte. Utilisez-la avec un range polarisé — mains très fortes et bluffs sélectionnés avec une bonne représentation du board.`;
+    } else if (ratio <= 1.05) {
+      verdict = `${v} pot (${Math.round(ratio * 100)}%)`;
+      conseil = `Mise plein pot : sizing très agressif qui représente une main forte ou polarisée. L'adversaire n'a besoin que de ~25% d'équité pour justifier un call — soyez sûr d'avoir soit une main premium, soit un range de bluff crédible. Évitez les mises pot avec des mains moyennes sans représentation claire.`;
+    } else {
+      verdict = `Overbet (${Math.round(ratio * 100)}% pot)`;
+      conseil = `Overbet : ligne rare qui représente une range ultra-polarisée (nuts ou bluff). À utiliser uniquement sur des boards qui avantagent clairement votre range et face à des adversaires qui ne s'adaptent pas. L'adversaire doit approcher 50% d'équité pour être indifférent — assurez-vous que votre ratio value/bluff est équilibré.`;
+    }
+
+    return { verdict, conseil };
+  }
+
+  if (action === 'call') {
+    if (!potBeforeHero || !amount) return { verdict: 'Call', conseil: 'Call enregistré sans montant précis.' };
+    const potOdds  = amount / (potBeforeHero + amount);
+    const pctNeed  = Math.round(potOdds * 100);
+    let verdict, conseil;
+
+    if (pctNeed <= 20) {
+      verdict = `Call — excellent prix (${pctNeed}% éq. req.)`;
+      conseil = `Très bon prix : seulement ${pctNeed}% d'équité nécessaire pour un call rentable. À ce prix, presque toute main avec de la showdown value ou du potentiel de draw justifie de continuer. Défendez large dans ces situations — l'adversaire doit vous convaincre que l'intégralité de votre range est battue pour que le fold soit correct.`;
+    } else if (pctNeed <= 33) {
+      verdict = `Call — bon prix (${pctNeed}% éq. req.)`;
+      conseil = `Bon prix : ${pctNeed}% d'équité requise. Avec une paire, un draw fort ou une main à potentiel, ce call est clairement justifié. Estimez votre équité contre le range de l'adversaire — si vous avez ${pctNeed}%+ d'équité, appeler génère de l'EV positive.`;
+    } else if (pctNeed <= 45) {
+      verdict = `Call — prix élevé (${pctNeed}% éq. req.)`;
+      conseil = `Prix cher : ${pctNeed}% d'équité requise. Seules les mains fortes (top pair top kicker+, draws premium avec backdoor equity) justifient ce call. Évaluez vos implied odds — si vous pouvez extraire de la valeur quand vous frappez, le call devient plus rentable. Sinon, envisagez le fold.`;
+    } else {
+      verdict = `Call — prix très élevé (${pctNeed}% éq. req.)`;
+      conseil = `Prix très élevé : ${pctNeed}% d'équité nécessaire. Ce call ne se justifie qu'avec une main très forte ou des implied odds exceptionnels. Dans la majorité des situations, un fold (main faible) ou un re-raise (main forte) sont plus appropriés qu'un call passif à ce prix.`;
+    }
+
+    return { verdict, conseil };
+  }
+
+  if (action === 'check') {
+    return {
+      verdict: 'Check',
+      conseil: `Check au ${lbl}. Jeu passif qui contrôle le pot, masque la force de votre main et peut préparer un check-raise. Le check est optimal pour les mains moyennes (pot control), les mains très fortes en position (trap) ou quand vous n'avez pas assez d'équité pour miser profitablement. Ayez un plan clair pour la prochaine rue.`
+    };
+  }
+
+  if (action === 'fold') {
+    const lastBet = [...actsBefore].reverse().find(a => a.action === 'raise' || a.action === 'allin');
+    if (lastBet?.amount > 0 && potBeforeHero > 0) {
+      const potOdds = lastBet.amount / (potBeforeHero + lastBet.amount);
+      const pctNeed = Math.round(potOdds * 100);
+      let conseil;
+      if (pctNeed <= 25) {
+        conseil = `Fold face à une mise nécessitant seulement ${pctNeed}% d'équité. Vous aviez un excellent prix pour continuer — le fold n'est justifié qu'avec une main sans aucune équité ni draw. Analysez si vous aviez des outs ou de la showdown value avant de folder à ce prix aussi favorable.`;
+      } else if (pctNeed <= 40) {
+        conseil = `Fold face à une mise nécessitant ${pctNeed}% d'équité. Prix modéré : le fold est correct si votre main est sans équité contre le range de l'adversaire. Évaluez vos outs et implied odds avant de folder — avec un draw ou une paire faible, continuer aurait pu être rentable.`;
+      } else {
+        conseil = `Fold face à une mise nécessitant ${pctNeed}% d'équité. Prix élevé : le fold avec une main sans potentiel est souvent la bonne décision ici. Vous avez bien géré la situation en ne surpayant pas face à une agression forte avec une main sans equity suffisante.`;
+      }
+      return { verdict: `Fold (${pctNeed}% éq. req.)`, conseil };
+    }
+    return {
+      verdict: 'Fold',
+      conseil: `Fold au ${lbl}. Vous avez abandonné la main sur cette rue. Analysez si votre main avait encore de l'équité ou du potentiel postflop pour continuer. Un fold face à une forte agression avec une main sans outs est généralement correct — identifiez si vous étiez dans cette situation.`
+    };
+  }
+
+  return null;
+}
