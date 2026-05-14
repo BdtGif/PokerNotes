@@ -1011,8 +1011,8 @@ export function computeOptimalMove(hand, streetKey) {
     const villainHasInitiative = ctx?.pfAggressorPos != null && !isPFR;
     if (villainHasInitiative && hs.tier !== 'monster') {
       const planNote = (hs.tier === 'strong') ? ' Plan : check-raise pour la value, ou check-call selon la dynamique.'
-        : (hs.tier === 'medium') ? ' Plan : check-call à un prix raisonnable, check-fold face à une pression forte.'
-        : (hs.tier === 'draw') ? ' Plan : check-call si le prix est correct (pot odds + implied odds), sinon check-fold.'
+        : (hs.tier === 'medium') ? ' Plan : check-call à un size raisonnable, check-fold face à une pression forte.'
+        : (hs.tier === 'draw') ? ' Plan : check-call si le size est correct (pot odds + implied odds), sinon check-fold.'
         : ' Plan : check-fold sauf opportunité claire de bluff catch.';
       return {
         label: `Check — laisser le PFR c-bet`, actionType: 'check',
@@ -1036,7 +1036,7 @@ export function computeOptimalMove(hand, streetKey) {
       const size = isMW && drawy ? Math.min(100, baseSize + 15) : baseSize;
       return {
         label: `Bet value ~${size}% — ${hs.madeDesc}`, actionType: 'raise',
-        detail: `${hs.desc}. Misez pour la valeur${drawy ? ' et la protection (board drawy)' : ''}.${isMW ? ` Multiway${mwLabel} : sizing un peu plus gros pour ne pas donner de prix aux tirages.` : ''}${flop ? ` Board ${flop.label}.` : ''}`
+        detail: `${hs.desc}. Misez pour la valeur${drawy ? ' et la protection (board drawy)' : ''}.${isMW ? ` Multiway${mwLabel} : sizing un peu plus gros pour ne pas donner de size aux tirages.` : ''}${flop ? ` Board ${flop.label}.` : ''}`
       };
     }
 
@@ -1068,7 +1068,7 @@ export function computeOptimalMove(hand, streetKey) {
     // Weak / weak-draw → check pour le showdown value
     if (hs.tier === 'weak' || hs.tier === 'weak-draw') return {
       label: 'Check — showdown value', actionType: 'check',
-      detail: `${hs.desc}. Misez et vous vous faites raise ou call par mieux. Check pour conserver le showdown value et bluff-catch à bon prix.${isMW ? ` Multiway${mwLabel} renforce le choix du check.` : ''}`
+      detail: `${hs.desc}. Misez et vous vous faites raise ou call par mieux. Check pour conserver le showdown value et bluff-catch à bon size.${isMW ? ` Multiway${mwLabel} renforce le choix du check.` : ''}`
     };
 
     // Air → c-bet bluff seulement si PFR + HU + board ${flop?.label || ''} dry, sinon check
@@ -1117,26 +1117,26 @@ export function computeOptimalMove(hand, streetKey) {
           };
           return {
             label: `Call value — ${hs.madeDesc}${hs.draws.length ? ' + tirage' : ''}`, actionType: 'call',
-            detail: `${hs.desc}. Main suffisamment forte pour défendre face à cette mise (${pctNeed}% requis).${ctxStr} Call automatique au minimum ; envisagez une relance pour la valeur et la protection${hs.draws.length ? ' — équité combinée (made + tirage) largement au-dessus du prix demandé' : ''}.`
+            detail: `${hs.desc}. Main suffisamment forte pour défendre face à cette mise (${pctNeed}% requis).${ctxStr} Call automatique au minimum ; envisagez une relance pour la valeur et la protection${hs.draws.length ? ' — équité combinée (made + tirage) largement au-dessus du size demandé' : ''}.`
           };
         }
         if (hs.tier === 'medium') {
           // Contexte dur (C/R, multibarrel turn/river, multiway) → resserrer
           if (harshSignal && pctNeed > 30) return {
             label: `Fold — ${hs.madeDesc} face à signal fort (${pctNeed}% req.)`, actionType: 'fold',
-            detail: `${hs.desc}.${ctxStr} Une main medium ne bat pas le range crédibilisé adverse à ce prix (${pctNeed}%). Le fold protège votre stack ; conservez-le pour de meilleurs spots.`
+            detail: `${hs.desc}.${ctxStr} Une main medium ne bat pas le range crédibilisé adverse à ce size (${pctNeed}%). Le fold protège votre stack ; conservez-le pour de meilleurs spots.`
           };
           if (harshSignal) return {
             label: `Call très serré — ${hs.madeDesc} (${pctNeed}% req.)`, actionType: 'call',
-            detail: `${hs.desc}.${ctxStr} Le signal adverse est fort mais le prix (${pctNeed}%) reste correct — call de prudence sans pot building. Plan : check-fold sur les streets suivantes sauf amélioration nette.`
+            detail: `${hs.desc}.${ctxStr} Le signal adverse est fort mais le size (${pctNeed}%) reste correct — call de prudence sans pot building. Plan : check-fold sur les streets suivantes sauf amélioration nette.`
           };
           if (pctNeed <= 40) return {
             label: `Call — ${hs.madeDesc} (${pctNeed}% éq. req.)`, actionType: 'call',
-            detail: `${hs.desc}. Prix demandé ${pctNeed}% — votre showdown value et équité directe justifient le call.${ctxStr} Évitez les relances spéculatives sans information adverse supplémentaire.`
+            detail: `${hs.desc}. size demandé ${pctNeed}% — votre showdown value et équité directe justifient le call.${ctxStr} Évitez les relances spéculatives sans information adverse supplémentaire.`
           };
           return {
             label: `Call serré — ${hs.madeDesc} (${pctNeed}% éq. req.)`, actionType: 'call',
-            detail: `${hs.desc}. Prix élevé (${pctNeed}% requis) mais la main conserve une showdown value réelle.${ctxStr} Call défendable contre un range polarisé/large ; fold contre un profil très tight.`
+            detail: `${hs.desc}. size élevé (${pctNeed}% requis) mais la main conserve une showdown value réelle.${ctxStr} Call défendable contre un range polarisé/large ; fold contre un profil très tight.`
           };
         }
         if (hs.tier === 'draw') {
@@ -1151,12 +1151,12 @@ export function computeOptimalMove(hand, streetKey) {
           };
           return {
             label: `Call selon implied odds — tirage (${pctNeed}% req.)`, actionType: 'call',
-            detail: `${hs.desc}. Prix au-dessus de l'équité directe (${pctNeed}% requis vs ~32-35%).${ctxStr} Call valide si l'adversaire paiera large quand le tirage rentre, sinon fold.`
+            detail: `${hs.desc}. size au-dessus de l'équité directe (${pctNeed}% requis vs ~32-35%).${ctxStr} Call valide si l'adversaire paiera large quand le tirage rentre, sinon fold.`
           };
         }
         if (hs.tier === 'weak-draw') return {
           label: `Fold (sauf implied odds) — ${pctNeed}% req.`, actionType: 'fold',
-          detail: `${hs.desc} (~4 outs ≈ 16% par river). Prix de ${pctNeed}% trop cher sans implied odds claires.${ctxStr} Fold par défaut ; call uniquement en stack profond face à un adversaire inducible.`
+          detail: `${hs.desc} (~4 outs ≈ 16% par river). size de ${pctNeed}% trop cher sans implied odds claires.${ctxStr} Fold par défaut ; call uniquement en stack profond face à un adversaire inducible.`
         };
         if (hs.tier === 'weak') return {
           label: `Fold / call serré — ${hs.madeDesc} (${pctNeed}% req.)`, actionType: 'fold',
@@ -1172,15 +1172,15 @@ export function computeOptimalMove(hand, streetKey) {
       // Fallback (pas de cartes hero ou pas de board) — pot odds seul
       if (pctNeed <= 25) return {
         label: `Call (éq. ≥${pctNeed}%)`, actionType: 'call',
-        detail: `Excellent prix : seulement ${pctNeed}% d'équité requise. Défendez large — fold uniquement si vous n'avez aucun out ni showdown value.`
+        detail: `Excellent size : seulement ${pctNeed}% d'équité requise. Défendez large — fold uniquement si vous n'avez aucun out ni showdown value.`
       };
       if (pctNeed <= 40) return {
         label: `Call si éq. ≥${pctNeed}%`, actionType: 'call',
-        detail: `Prix raisonnable (${pctNeed}% requis). Call justifié avec top pair+, draws forts ou implied odds. Fold avec les mains faibles sans potentiel.`
+        detail: `size raisonnable (${pctNeed}% requis). Call justifié avec top pair+, draws forts ou implied odds. Fold avec les mains faibles sans potentiel.`
       };
       return {
         label: `Fold / éq. ≥${pctNeed}%`, actionType: 'fold',
-        detail: `Prix élevé (${pctNeed}% requis). Le fold est optimal avec les mains sans potentiel. Continuez uniquement avec des mains très fortes.`
+        detail: `size élevé (${pctNeed}% requis). Le fold est optimal avec les mains sans potentiel. Continuez uniquement avec des mains très fortes.`
       };
     }
   }
