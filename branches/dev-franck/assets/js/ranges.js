@@ -196,7 +196,7 @@ function _analyzeVsRaise(hand, heroPos, action, raiserPos) {
   if (action === 'call') {
     if (is3bv) return {
       ok: false, note: 'Call ✗ — 3-bet value recommandé', scenario,
-      conseil: `${hand} (top 4%) doit toujours être 3-bettée pour sa valeur. Le call ici est une erreur de sizing : vous permettez à des mains comme AQ, KQ, JJ de voir un flop à prix réduit avec une chance de vous battre. Le 3-bet construit un gros pot avec l'avantage dès le départ.`
+      conseil: `${hand} (top 4%) doit toujours être 3-bettée pour sa valeur. Le call ici est une erreur de sizing : vous permettez à des mains comme AQ, KQ, JJ de voir un flop à size réduit avec une chance de vous battre. Le 3-bet construit un gros pot avec l'avantage dès le départ.`
     };
     if (is3bb) return {
       ok: false, note: 'Call ✗ — 3-bet bluff recommandé', scenario,
@@ -237,7 +237,7 @@ function _analyzeBBDefense(hand, action, raiserPos) {
   if (action === 'call' || action === 'check') {
     if (isAlways) return {
       ok: true, note: 'Défense BB ✓ — main forte', scenario,
-      conseil: `${hand} est dans le range de défense systématique du BB, quelle que soit la position de l'openeur. Défendre est l'action optimale : vous bénéficiez du prix des blinds déjà investies et cette main a assez d'équité ou de potentiel postflop pour compenser le désavantage positionnel. Continuez à défendre ces mains systématiquement.`
+      conseil: `${hand} est dans le range de défense systématique du BB, quelle que soit la position de l'openeur. Défendre est l'action optimale : vous bénéficiez du size des blinds déjà investies et cette main a assez d'équité ou de potentiel postflop pour compenser le désavantage positionnel. Continuez à défendre ces mains systématiquement.`
     };
     if (isMitige) return {
       ok: null, note: `Défense BB ⚠ — spot ${spotLabel} recommandé`, scenario,
@@ -249,7 +249,7 @@ function _analyzeBBDefense(hand, action, raiserPos) {
     };
     return {
       ok: false, note: 'Défense BB ✗ — fold recommandé', scenario,
-      conseil: `${hand} est hors range de défense BB même avec le prix des blinds. Face à ${raiserLabel}, cette main n'a pas assez d'équité pour compenser le désavantage positionnel. Le fold préserve votre stack et évite les situations où vous jouez OOP avec une main faible contre un range défini.`
+      conseil: `${hand} est hors range de défense BB même avec le size des blinds. Face à ${raiserLabel}, cette main n'a pas assez d'équité pour compenser le désavantage positionnel. Le fold préserve votre stack et évite les situations où vous jouez OOP avec une main faible contre un range défini.`
     };
   }
   if (action === 'fold') {
@@ -263,7 +263,7 @@ function _analyzeBBDefense(hand, action, raiserPos) {
     };
     return {
       ok: true, note: 'Fold ✓', scenario,
-      conseil: `${hand} est hors range de défense BB face à ${raiserLabel}. Le fold est la décision correcte. Malgré le prix des blinds, cette main n'a pas assez d'équité ou de potentiel postflop pour compenser le désavantage positionnel permanent que vous aurez tout au long de la main.`
+      conseil: `${hand} est hors range de défense BB face à ${raiserLabel}. Le fold est la décision correcte. Malgré le size des blinds, cette main n'a pas assez d'équité ou de potentiel postflop pour compenser le désavantage positionnel permanent que vous aurez tout au long de la main.`
     };
   }
   if (action === 'raise') {
@@ -432,7 +432,7 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
           conseil = `Votre c-bet de ${pct}% est aligné avec le sizing recommandé (~${rec}%) pour un board ${flop.label} (${flop.desc}). ${flop.category === 'extra-dry' ? `Sur un board extra dry, vous bénéficiez d'un fort avantage de range — une petite mise suffit à extraire de la valeur car l'adversaire défend avec beaucoup de mains dominées. Misez avec un range large.` : flop.category === 'dry' ? `Sur un board dry, une mise ~${rec}% équilibre votre range value/bluff tout en protégeant vos mains contre les draws potentiels. Sélectionnez vos bluffs avec des backdoor draws.` : `Sur un board drawy, une mise plus grosse de ~${rec}% est indispensable — votre adversaire a de nombreux draws et doit payer suffisamment cher pour ne pas avoir un appel profitable.`}`;
         } else if (delta < -10) {
           verdict = `C-bet trop petite (${pct}% vs ~${rec}% rec.) — board ${flop.label}`;
-          conseil = `Sur un board ${flop.label} (${flop.desc}), le sizing recommandé est ~${rec}% du pot. Votre mise de ${pct}% est trop petite : ${flop.category === 'drawy' ? `les boards drawy nécessitent une mise plus grosse — donner un bon prix aux draws adverses rend leurs calls trop profitables. Visez ~${rec}% pour qu'ils paient correctement leur équité.` : flop.category === 'dry' ? `sur ce board dry, une mise plus petite laisse de la valeur sur la table et donne à l'adversaire un excellent prix pour flotter avec des mains marginales. Préférez ~${rec}%.` : `même sur un board extra dry, allez à ${rec}% pour extraire de la valeur — votre adversaire doit payer pour ses mains dominées.`}`;
+          conseil = `Sur un board ${flop.label} (${flop.desc}), le sizing recommandé est ~${rec}% du pot. Votre mise de ${pct}% est trop petite : ${flop.category === 'drawy' ? `les boards drawy nécessitent une mise plus grosse — donner un bon size aux draws adverses rend leurs calls trop profitables. Visez ~${rec}% pour qu'ils paient correctement leur équité.` : flop.category === 'dry' ? `sur ce board dry, une mise plus petite laisse de la valeur sur la table et donne à l'adversaire un excellent size pour flotter avec des mains marginales. Préférez ~${rec}%.` : `même sur un board extra dry, allez à ${rec}% pour extraire de la valeur — votre adversaire doit payer pour ses mains dominées.`}`;
         } else {
           verdict = `C-bet trop grande (${pct}% vs ~${rec}% rec.) — board ${flop.label}`;
           conseil = `Sur un board ${flop.label} (${flop.desc}), le sizing recommandé est ~${rec}% du pot. Votre mise de ${pct}% est trop grande : ${flop.category === 'extra-dry' ? `sur les boards extra dry, une grosse mise réduit votre fréquence de c-bet — vous ne pouvez pas la justifier avec assez de bluffs. Préférez ${rec}% pour c-beter avec un range plus large et extraire de la valeur de manière moins risquée.` : `cette taille met trop de pression avec votre range complet — l'adversaire va folder les mains marginales mais défendre avec ses mains fortes, réduisant votre EV globale. Visez ~${rec}% pour un range de c-bet plus équilibré.`}`;
@@ -449,7 +449,7 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
         if (flop.category === 'drawy') {
           if (ratio < 0.65) return {
             verdict: `2-barrel trop petite (${pct}% vs 80-100%+ rec.) — turn drawy`,
-            conseil: `Sur un board drawy (${flop.desc}), NE JAMAIS 2-barrel avec une petite mise au turn. Les draws sont indifférents à vos petites mises : ils appellent correctement et réalisent leur équité sans payer le prix fort. Visez 80-100%+ pot pour rendre leurs calls non-profitables et protéger vos mains fortes.`
+            conseil: `Sur un board drawy (${flop.desc}), NE JAMAIS 2-barrel avec une petite mise au turn. Les draws sont indifférents à vos petites mises : ils appellent correctement et réalisent leur équité sans payer le size fort. Visez 80-100%+ pot pour rendre leurs calls non-profitables et protéger vos mains fortes.`
           };
           if (ratio >= 0.80) return {
             verdict: `2-barrel ✓ ${pct}% — turn drawy`,
@@ -466,7 +466,7 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
           };
           if (ratio < 0.45) return {
             verdict: `2-barrel trop petite (${pct}% vs 50-75% rec.) — turn sec`,
-            conseil: `Sur un board sec au turn, visez 50-75% pot. Votre mise de ${pct}% laisse de la valeur sur la table et donne à l'adversaire un excellent prix pour défendre ses mains moyennes et flotter. Augmentez votre sizing pour rendre leurs calls moins profitables.`
+            conseil: `Sur un board sec au turn, visez 50-75% pot. Votre mise de ${pct}% laisse de la valeur sur la table et donne à l'adversaire un excellent size pour défendre ses mains moyennes et flotter. Augmentez votre sizing pour rendre leurs calls moins profitables.`
           };
           return {
             verdict: `2-barrel oversize (${pct}%) — turn sec`,
@@ -499,10 +499,10 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
     let verdict, conseil;
     if (ratio <= 0.29) {
       verdict = `${v} petite (${pct}% pot)`;
-      conseil = `${v} petite à ${pct}% du pot. Adapté aux blocker bets, protection sur boards secs ou thin value. Donne un bon prix à l'adversaire — assurez-vous d'avoir une raison stratégique précise. Avec des mains moyennes, une petite mise peut signaler de la faiblesse et provoquer des floats ou re-raises.`;
+      conseil = `${v} petite à ${pct}% du pot. Adapté aux blocker bets, protection sur boards secs ou thin value. Donne un bon size à l'adversaire — assurez-vous d'avoir une raison stratégique précise. Avec des mains moyennes, une petite mise peut signaler de la faiblesse et provoquer des floats ou re-raises.`;
     } else if (ratio <= 0.45) {
       verdict = `${v} ~1/3 pot (${pct}%)`;
-      conseil = `Sizing standard à 1/3 pot. Adapté pour un range large et polarisé. Donne un prix raisonnable à l'adversaire tout en récupérant de la valeur avec un mix équilibré de value hands et de bluffs.`;
+      conseil = `Sizing standard à 1/3 pot. Adapté pour un range large et polarisé. Donne un size raisonnable à l'adversaire tout en récupérant de la valeur avec un mix équilibré de value hands et de bluffs.`;
     } else if (ratio <= 0.59) {
       verdict = `${v} ~1/2 pot (${pct}%)`;
       conseil = `Mise 1/2 pot : taille équilibrée, bonne par défaut sur la plupart des boards. Elle protège vos mains fortes contre les draws et extrait de la valeur sans surexposer votre range.`;
@@ -526,17 +526,17 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
     let verdict, conseil;
 
     if (pctNeed <= 20) {
-      verdict = `Call — excellent prix (${pctNeed}% éq. req.)`;
-      conseil = `Très bon prix : seulement ${pctNeed}% d'équité nécessaire pour un call rentable. À ce prix, presque toute main avec de la showdown value ou du potentiel de draw justifie de continuer. Défendez large dans ces situations — l'adversaire doit vous convaincre que l'intégralité de votre range est battue pour que le fold soit correct.`;
+      verdict = `Call — excellent size (${pctNeed}% éq. req.)`;
+      conseil = `Très bon size : seulement ${pctNeed}% d'équité nécessaire pour un call rentable. À ce size, presque toute main avec de la showdown value ou du potentiel de draw justifie de continuer. Défendez large dans ces situations — l'adversaire doit vous convaincre que l'intégralité de votre range est battue pour que le fold soit correct.`;
     } else if (pctNeed <= 33) {
-      verdict = `Call — bon prix (${pctNeed}% éq. req.)`;
-      conseil = `Bon prix : ${pctNeed}% d'équité requise. Avec une paire, un draw fort ou une main à potentiel, ce call est clairement justifié. Estimez votre équité contre le range de l'adversaire — si vous avez ${pctNeed}%+ d'équité, appeler génère de l'EV positive.`;
+      verdict = `Call — bon size (${pctNeed}% éq. req.)`;
+      conseil = `Bon size : ${pctNeed}% d'équité requise. Avec une paire, un draw fort ou une main à potentiel, ce call est clairement justifié. Estimez votre équité contre le range de l'adversaire — si vous avez ${pctNeed}%+ d'équité, appeler génère de l'EV positive.`;
     } else if (pctNeed <= 45) {
-      verdict = `Call — prix élevé (${pctNeed}% éq. req.)`;
-      conseil = `Prix cher : ${pctNeed}% d'équité requise. Seules les mains fortes (top pair top kicker+, draws premium avec backdoor equity) justifient ce call. Évaluez vos implied odds — si vous pouvez extraire de la valeur quand vous frappez, le call devient plus rentable. Sinon, envisagez le fold.`;
+      verdict = `Call — size élevé (${pctNeed}% éq. req.)`;
+      conseil = `size cher : ${pctNeed}% d'équité requise. Seules les mains fortes (top pair top kicker+, draws premium avec backdoor equity) justifient ce call. Évaluez vos implied odds — si vous pouvez extraire de la valeur quand vous frappez, le call devient plus rentable. Sinon, envisagez le fold.`;
     } else {
-      verdict = `Call — prix très élevé (${pctNeed}% éq. req.)`;
-      conseil = `Prix très élevé : ${pctNeed}% d'équité nécessaire. Ce call ne se justifie qu'avec une main très forte ou des implied odds exceptionnels. Dans la majorité des situations, un fold (main faible) ou un re-raise (main forte) sont plus appropriés qu'un call passif à ce prix.`;
+      verdict = `Call — size très élevé (${pctNeed}% éq. req.)`;
+      conseil = `size très élevé : ${pctNeed}% d'équité nécessaire. Ce call ne se justifie qu'avec une main très forte ou des implied odds exceptionnels. Dans la majorité des situations, un fold (main faible) ou un re-raise (main forte) sont plus appropriés qu'un call passif à ce size.`;
     }
 
     return { verdict, conseil };
@@ -556,11 +556,11 @@ export function analyzePostflopAction(streetKey, heroAction, potBeforeHero, stre
       const pctNeed = Math.round(potOdds * 100);
       let conseil;
       if (pctNeed <= 25) {
-        conseil = `Fold face à une mise nécessitant seulement ${pctNeed}% d'équité. Vous aviez un excellent prix pour continuer — le fold n'est justifié qu'avec une main sans aucune équité ni draw. Analysez si vous aviez des outs ou de la showdown value avant de folder à ce prix aussi favorable.`;
+        conseil = `Fold face à une mise nécessitant seulement ${pctNeed}% d'équité. Vous aviez un excellent size pour continuer — le fold n'est justifié qu'avec une main sans aucune équité ni draw. Analysez si vous aviez des outs ou de la showdown value avant de folder à ce size aussi favorable.`;
       } else if (pctNeed <= 40) {
-        conseil = `Fold face à une mise nécessitant ${pctNeed}% d'équité. Prix modéré : le fold est correct si votre main est sans équité contre le range de l'adversaire. Évaluez vos outs et implied odds avant de folder — avec un draw ou une paire faible, continuer aurait pu être rentable.`;
+        conseil = `Fold face à une mise nécessitant ${pctNeed}% d'équité. size modéré : le fold est correct si votre main est sans équité contre le range de l'adversaire. Évaluez vos outs et implied odds avant de folder — avec un draw ou une paire faible, continuer aurait pu être rentable.`;
       } else {
-        conseil = `Fold face à une mise nécessitant ${pctNeed}% d'équité. Prix élevé : le fold avec une main sans potentiel est souvent la bonne décision ici. Vous avez bien géré la situation en ne surpayant pas face à une agression forte avec une main sans equity suffisante.`;
+        conseil = `Fold face à une mise nécessitant ${pctNeed}% d'équité. size élevé : le fold avec une main sans potentiel est souvent la bonne décision ici. Vous avez bien géré la situation en ne surpayant pas face à une agression forte avec une main sans equity suffisante.`;
       }
       return { verdict: `Fold (${pctNeed}% éq. req.)`, conseil };
     }
@@ -752,7 +752,7 @@ export function computeOptimalMove(hand, streetKey) {
       const tip = flop.category === 'extra-dry'
         ? 'Mise petite sur un board sec — c-betez avec un range large pour extraire de la valeur.'
         : flop.category === 'drawy'
-        ? 'Mise grosse indispensable — les draws doivent payer le bon prix.'
+        ? 'Mise grosse indispensable — les draws doivent payer le bon size.'
         : 'Sizing équilibré pour protéger vos mains et bluffer sélectivement.';
       return {
         label: `C-bet ~${rec}% pot`, actionType: 'raise',
@@ -786,15 +786,15 @@ export function computeOptimalMove(hand, streetKey) {
       const pctNeed = Math.round(toCall / (potBefore + toCall) * 100);
       if (pctNeed <= 25) return {
         label: `Call (éq. ≥${pctNeed}%)`, actionType: 'call',
-        detail: `Excellent prix : seulement ${pctNeed}% d'équité requise. Défendez large — fold uniquement si vous n'avez aucun out ni showdown value.`
+        detail: `Excellent size : seulement ${pctNeed}% d'équité requise. Défendez large — fold uniquement si vous n'avez aucun out ni showdown value.`
       };
       if (pctNeed <= 40) return {
         label: `Call si éq. ≥${pctNeed}%`, actionType: 'call',
-        detail: `Prix raisonnable (${pctNeed}% requis). Call justifié avec top pair+, draws forts ou implied odds. Fold avec les mains faibles sans potentiel.`
+        detail: `size raisonnable (${pctNeed}% requis). Call justifié avec top pair+, draws forts ou implied odds. Fold avec les mains faibles sans potentiel.`
       };
       return {
         label: `Fold / éq. ≥${pctNeed}%`, actionType: 'fold',
-        detail: `Prix élevé (${pctNeed}% requis). Le fold est optimal avec les mains sans potentiel. Continuez uniquement avec des mains très fortes.`
+        detail: `size élevé (${pctNeed}% requis). Le fold est optimal avec les mains sans potentiel. Continuez uniquement avec des mains très fortes.`
       };
     }
   }
