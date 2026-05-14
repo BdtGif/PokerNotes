@@ -201,8 +201,44 @@ display: flex; align-items: center; gap: 6px;justify-content: space-between;
 #modal-analysis { scrollbar-width: none; }
 #modal-analysis::-webkit-scrollbar { display: none; }
 
-/* ---------- BOARD DANS MODALE ---------- */
-.ana-board-row { display: flex; gap: 3px; margin-bottom: 6px; }
+/* ---------- SECTIONS STREET (Préflop / Flop / Turn / River) ---------- */
+.ana-section {
+  border: 1px solid var(--b);
+  border-left: 3px solid var(--b);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.ana-section--ok   { border-left-color: #4ade80; }
+.ana-section--bad  { border-left-color: #f87171; }
+.ana-section--warn { border-left-color: #fbbf24; }
+.ana-section-header {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--s3); padding: 8px 12px;
+  border-bottom: 1px solid var(--b);
+}
+.ana-section-label {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--gold); flex-shrink: 0;
+}
+.ana-section-cards { display: flex; gap: 3px; }
+.ana-section-body { background: var(--s2); }
+
+/* Blocs intérieurs à la section : on retire leurs propres bordures et rayons */
+.ana-section .ana-block {
+  background: transparent;
+  border: none; border-radius: 0;
+  border-bottom: 1px solid rgba(232,212,184,0.06);
+  margin-bottom: 0;
+}
+.ana-section .ana-block:last-child { border-bottom: none; }
+.ana-section .ana-conseil {
+  border: none; border-radius: 0;
+  border-left: none;
+  margin-bottom: 0;
+  background: rgba(0,0,0,0.12);
+  padding: 10px 12px;
+}
 
 /* Badge de catégorie de board (Extra Dry / Dry / Drawy) */
 .ana-board-badge {

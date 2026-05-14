@@ -156,30 +156,34 @@ function _showAnalysisModal(hand) {
     const heroAct = st?.actions?.length ? st.actions.find(a => a.pos === hero?.pos) : null;
 
     if (heroAct) {
-      const amt = heroAct.amount ? ` — ${fmtHistAmt(heroAct.amount, hand.bb)}` : '';
+      const amt       = heroAct.amount ? ` — ${fmtHistAmt(heroAct.amount, hand.bb)}` : '';
       const actionLbl = `${_actionLabel(heroAct.action)}${amt}`;
-      const boardHtml = st.cards?.map(histCardHtml).join('') || '';
+      const boardCards = st.cards?.map(histCardHtml).join('') || '';
 
-      let rows = '';
-      let conseilHtml = '';
+      let infoRows    = '';
+      let conseilText = '';
+      let conseilCls  = 'ana-conseil--warn';
+      let sectionCls  = 'ana-section--warn';
+      let headerBadge = '';
 
       if (key === 'preflop') {
         const a = analyzeHandPreflop(hand);
         if (a?.result) {
           const okCls = a.result.ok === true ? 'ha-ok' : a.result.ok === false ? 'ha-bad' : 'ha-warn';
           const scenarioTxt = a.result.scenario || '';
-          rows = `
+          infoRows = `
             ${scenarioTxt ? `<div class="ana-row"><span class="ana-action-lbl">Contexte</span><span class="ana-action-val ana-context">${scenarioTxt}</span></div>` : ''}
             <div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
             <div class="ana-row"><span class="ana-action-lbl">Verdict</span><span class="ha-verdict ${okCls}">${a.result.note}</span></div>`;
           if (a.result.conseil) {
-            const cls = a.result.ok === true ? 'ana-conseil--ok' : a.result.ok === false ? 'ana-conseil--bad' : 'ana-conseil--warn';
-            conseilHtml = `<div class="ana-block ana-conseil ${cls}"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${a.result.conseil}</p></div>`;
+            conseilText = a.result.conseil;
+            conseilCls  = a.result.ok === true ? 'ana-conseil--ok' : a.result.ok === false ? 'ana-conseil--bad' : 'ana-conseil--warn';
+            sectionCls  = a.result.ok === true ? 'ana-section--ok' : a.result.ok === false ? 'ana-section--bad' : 'ana-section--warn';
           }
         } else {
           const msg = !hero ? 'Hero non défini' : !hasCards ? 'Cartes non renseignées' : 'Aucune analyse PF disponible';
-          rows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
-                  <div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div>`;
+          infoRows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+                      <div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div>`;
         }
       } else {
         // Postflop : calcul du pot juste avant l'action Hero
@@ -190,34 +194,38 @@ function _showAnalysisModal(hand) {
         }
         const analysis = analyzePostflopAction(key, heroAct, potBefore, st.actions, st.cards);
 
-        // Badge de classification du board (flop uniquement)
-        let boardBadge = '';
+        // Badge de classification (flop uniquement, dans le header de section)
         if (key === 'flop' && st.cards?.length >= 3) {
           const flop = analysis?.boardInfo || classifyFlop(st.cards);
           if (flop) {
             const badgeCls = flop.category === 'extra-dry' ? 'ana-board-badge--dry'
                            : flop.category === 'drawy'     ? 'ana-board-badge--drawy'
                            :                                 'ana-board-badge--mid';
-            boardBadge = `<span class="ana-board-badge ${badgeCls}">${flop.label}</span>`;
+            headerBadge = `<span class="ana-board-badge ${badgeCls}">${flop.label}</span>`;
           }
         }
 
-        rows = `<div class="ana-row">
-                  <span class="ana-action-lbl">Action</span>
-                  <span class="ana-action-val">${actionLbl}</span>
-                  ${boardBadge}
-                </div>
-                ${analysis ? `<div class="ana-row"><span class="ana-action-lbl">Sizing</span><span class="ha-verdict ha-warn">${analysis.verdict}</span></div>` : ''}`;
-        if (analysis?.conseil) {
-          conseilHtml = `<div class="ana-block ana-conseil ana-conseil--warn"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${analysis.conseil}</p></div>`;
-        }
+        infoRows = `<div class="ana-row"><span class="ana-action-lbl">Action</span><span class="ana-action-val">${actionLbl}</span></div>
+                    ${analysis ? `<div class="ana-row"><span class="ana-action-lbl">Sizing</span><span class="ha-verdict ha-warn">${analysis.verdict}</span></div>` : ''}`;
+        if (analysis?.conseil) conseilText = analysis.conseil;
       }
 
-      streetBlocks += `<div class="ana-block">
-        <div class="ana-block-title">${label}</div>
-        ${boardHtml ? `<div class="ana-board-row">${boardHtml}</div>` : ''}
-        ${rows}
-      </div>${conseilHtml}`;
+      const conseilBlock = conseilText
+        ? `<div class="ana-conseil ${conseilCls}"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${conseilText}</p></div>`
+        : '';
+
+      streetBlocks += `
+        <div class="ana-section ${sectionCls}">
+          <div class="ana-section-header">
+            <span class="ana-section-label">${label}</span>
+            ${boardCards ? `<div class="ana-section-cards">${boardCards}</div>` : ''}
+            ${headerBadge}
+          </div>
+          <div class="ana-section-body">
+            <div class="ana-block">${infoRows}</div>
+            ${conseilBlock}
+          </div>
+        </div>`;
     }
 
     prevKey = key;
@@ -225,7 +233,7 @@ function _showAnalysisModal(hand) {
 
   if (!streetBlocks) {
     const msg = !hero ? 'Hero non défini.' : !hasCards ? 'Cartes Hero non renseignées.' : 'Aucune action Hero enregistrée.';
-    streetBlocks = `<div class="ana-block"><div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div></div>`;
+    streetBlocks = `<div class="ana-section"><div class="ana-section-body"><div class="ana-block"><div class="ana-row"><span class="ha-verdict ha-warn">${msg}</span></div></div></div></div>`;
   }
 
   const html = `
