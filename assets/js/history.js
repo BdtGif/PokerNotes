@@ -4,7 +4,7 @@ import { $, fmtChips, cardLabel, showToast } from './utils.js';
 import { state } from './state.js';
 import { loadAllHands, saveAllHands, deleteHand, loadPseudo, savePseudo } from './storage.js';
 import { showModal, closeModal } from './ui.js';
-import { analyzeHandPreflop, analyzePostflopAction, analyzeMultibarrelLine, classifyFlop, normalizeHand } from './ranges.js';
+import { analyzeHandPreflop, analyzePostflopAction, analyzeMultibarrelLine, classifyFlop, normalizeHand, computeOptimalMove } from './ranges.js';
 
 function fmtHistAmt(n, bb) {
   if (state.stackUnit === 'bb' && bb) return (n / bb).toFixed(1) + ' bb';
@@ -218,6 +218,18 @@ function _showAnalysisModal(hand) {
         ? `<div class="ana-conseil ${conseilCls}"><div class="ana-block-title">Conseil</div><p class="ana-conseil-text">${conseilText}</p></div>`
         : '';
 
+      const optMove = computeOptimalMove(hand, key);
+      const optBlock = optMove ? `
+        <div class="ana-optimal">
+          <button class="ana-optimal-toggle">
+            <span class="ana-optimal-icon">⚡</span>
+            <span class="ana-optimal-tag">Move optimal</span>
+            <span class="ana-optimal-action ana-optimal-action--${optMove.actionType}">${optMove.label}</span>
+            <span class="ana-optimal-chevron">›</span>
+          </button>
+          <div class="ana-optimal-body" hidden>${optMove.detail}</div>
+        </div>` : '';
+
       streetBlocks += `
         <div class="ana-section ${sectionCls}">
           <div class="ana-section-header">
@@ -228,6 +240,7 @@ function _showAnalysisModal(hand) {
           <div class="ana-section-body">
             <div class="ana-block">${infoRows}</div>
             ${conseilBlock}
+            ${optBlock}
           </div>
         </div>`;
     }
@@ -275,6 +288,20 @@ function _showAnalysisModal(hand) {
     id: 'modal-analysis',
     onMount: () => {
       $('ana-close').addEventListener('click', () => { closeModal(); showHistoryModal(); });
+
+      document.querySelectorAll('#modal-analysis .ana-optimal-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const body = btn.nextElementSibling;
+          const chevron = btn.querySelector('.ana-optimal-chevron');
+          if (body.hidden) {
+            body.hidden = false;
+            chevron.classList.add('open');
+          } else {
+            body.hidden = true;
+            chevron.classList.remove('open');
+          }
+        });
+      });
     }
   });
 }
