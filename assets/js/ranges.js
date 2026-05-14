@@ -715,9 +715,12 @@ function _heroHandStrength(heroCards, board) {
     }
   }
 
+  // Sur la river (board = 5 cartes), les tirages sont morts — uniquement la made hand compte
+  const isRiver = board.length >= 5;
+
   // Tirage couleur (exactement 4 de la même couleur, hero participe)
   let flushDraw = false;
-  if (!hasFlush) {
+  if (!hasFlush && !isRiver) {
     for (const [s, c] of Object.entries(suitCount)) {
       if (c === 4 && heroSuits.includes(s)) { flushDraw = true; break; }
     }
@@ -725,7 +728,7 @@ function _heroHandStrength(heroCards, board) {
 
   // Tirage quinte (bilatéral ou ventral, hero participe)
   let oesd = false, gutshot = false;
-  if (!hasStraight) {
+  if (!hasStraight && !isRiver) {
     for (let top = 14; top >= 5; top--) {
       const win = [top, top-1, top-2, top-3, top-4];
       if (win[4] < 1) break;
@@ -755,6 +758,99 @@ function _heroHandStrength(heroCards, board) {
     : (draws.length ? draws.join(' + ').replace(/^./, c => c.toUpperCase()) : 'Carte haute, aucun tirage');
 
   return { tier, madeDesc: madeDesc || 'Carte haute', draws, desc, flushDraw, oesd, gutshot };
+}
+
+// ── Contexte adverse postflop (multiway, PFR, check-raise, multibarrel…) ────
+
+/**
+ * Calcule des signaux adverses utiles pour modérer la reco postflop.
+ * @param {Object} hand
+ * @param {string} streetKey — 'flop' | 'turn' | 'river'
+ * @returns {{numOpponents:number, isMultiway:boolean, heroIsPFR:boolean, pfAggressorPos:string|null, is3betPot:boolean, oppBarrelsBefore:number, isCheckRaise:boolean, isDonkBet:boolean, lastBetterPos:string|null} | null}
+ */
+function _getPostflopContext(hand, streetKey) {
+  if (!hand?.players || hand.heroIdx == null) return null;
+  const heroPos = hand.players[hand.heroIdx]?.pos;
+  if (!heroPos) return null;
+
+  // Joueurs ayant fold (cumulé toutes streets)
+  const folded = new Set();
+  for (const sk of ['preflop', 'flop', 'turn', 'river']) {
+    const acts = hand.streets?.[sk]?.actions || [];
+    for (const a of acts) if (a.action === 'fold') folded.add(a.pos);
+  }
+  // Participants postflop = ceux ayant agi sur n'importe quelle street (autres que hero)
+  const participants = new Set();
+  for (const sk of ['preflop', 'flop', 'turn', 'river']) {
+    const acts = hand.streets?.[sk]?.actions || [];
+    for (const a of acts) if (a.pos !== heroPos) participants.add(a.pos);
+  }
+  let numOpponents = 0;
+  for (const p of participants) if (!folded.has(p)) numOpponents++;
+
+  // Aggresseur préflop (dernier raise/allin préflop)
+  const pfActions = hand.streets?.preflop?.actions || [];
+  const pfRaises = pfActions.filter(a => a.action === 'raise' || a.action === 'allin');
+  const pfAggressorPos = pfRaises.length ? pfRaises[pfRaises.length - 1].pos : null;
+  const heroIsPFR = pfAggressorPos === heroPos;
+  const is3betPot = pfRaises.length >= 2;
+
+  // Barrels adverses sur les streets précédentes
+  let oppBarrelsBefore = 0;
+  for (const sk of ['flop', 'turn', 'river']) {
+    if (sk === streetKey) break;
+    const acts = hand.streets?.[sk]?.actions || [];
+    if (acts.some(a => a.pos !== heroPos && (a.action === 'raise' || a.action === 'allin'))) {
+      oppBarrelsBefore++;
+    }
+  }
+
+  // Check-raise sur la street courante : un villain check, hero raise, puis un villain raise
+  const stActs = hand.streets?.[streetKey]?.actions || [];
+  let isCheckRaise = false;
+  let villainChecked = false, heroRaisedIdx = -1;
+  for (let i = 0; i < stActs.length; i++) {
+    const a = stActs[i];
+    if (a.pos !== heroPos && a.action === 'check') villainChecked = true;
+    else if (villainChecked && a.pos === heroPos && (a.action === 'raise' || a.action === 'allin')) {
+      heroRaisedIdx = i; break;
+    }
+  }
+  if (heroRaisedIdx >= 0) {
+    isCheckRaise = stActs.slice(heroRaisedIdx + 1)
+      .some(x => x.pos !== heroPos && (x.action === 'raise' || x.action === 'allin'));
+  }
+
+  // Donk bet : hero PFR + un villain mise avant l'action de hero sur cette street
+  const heroIdxInActs = stActs.findIndex(a => a.pos === heroPos);
+  const firstBet = stActs.find(a => a.action === 'raise' || a.action === 'allin');
+  const isDonkBet = !!(heroIsPFR && firstBet && firstBet.pos !== heroPos
+    && (heroIdxInActs < 0 || stActs.indexOf(firstBet) < heroIdxInActs));
+
+  // Position du dernier betteur (que hero doit caller) sur cette street
+  const actsBeforeHero = heroIdxInActs >= 0 ? stActs.slice(0, heroIdxInActs) : stActs;
+  const lastBetBefore = [...actsBeforeHero].reverse().find(a => a.action === 'raise' || a.action === 'allin');
+
+  return {
+    numOpponents,
+    isMultiway: numOpponents >= 2,
+    heroIsPFR,
+    pfAggressorPos,
+    is3betPot,
+    oppBarrelsBefore,
+    isCheckRaise,
+    isDonkBet,
+    lastBetterPos: lastBetBefore?.pos || null
+  };
+}
+
+/** Construit le board cumulé jusqu'à la street demandée (3 cartes flop, +1 turn, +1 river). */
+function _buildBoardUpToStreet(hand, streetKey) {
+  const board = [];
+  if (hand.streets?.flop?.cards) board.push(...hand.streets.flop.cards);
+  if ((streetKey === 'turn' || streetKey === 'river') && hand.streets?.turn?.cards) board.push(...hand.streets.turn.cards);
+  if (streetKey === 'river' && hand.streets?.river?.cards) board.push(...hand.streets.river.cards);
+  return board;
 }
 
 // ── Move optimal (calcul indépendant de l'action Hero) ───────────────────────
@@ -875,37 +971,121 @@ export function computeOptimalMove(hand, streetKey) {
   const flopCards = hand.streets?.flop?.cards;
   const flop = classifyFlop(flopCards || []);
 
+  const ctx = _getPostflopContext(hand, streetKey);
+  const board = _buildBoardUpToStreet(hand, streetKey);
+  const hs = _heroHandStrength(hero.cards, board);
+
   // Hero est le premier à agir (aggressor ou check)
   if (!hasBetBefore) {
-    if (streetKey === 'flop' && flop) {
-      const rec = flop.sizing.earlyGame;
-      const tip = flop.category === 'extra-dry'
-        ? 'Mise petite sur un board sec — c-betez avec un range large pour extraire de la valeur.'
-        : flop.category === 'drawy'
-        ? 'Mise grosse indispensable — les draws doivent payer le bon size.'
-        : 'Sizing équilibré pour protéger vos mains et bluffer sélectivement.';
+    const drawy   = flop?.category === 'drawy';
+    const extraDry = flop?.category === 'extra-dry';
+    const isMW    = !!ctx?.isMultiway;
+    const isPFR   = ctx?.heroIsPFR ?? true;
+
+    // Sizing baseline (% pot) selon la street et la texture
+    let baseSize;
+    if (streetKey === 'flop' && flop) baseSize = flop.sizing.earlyGame;
+    else if (streetKey === 'turn')    baseSize = drawy ? 85 : 60;
+    else                              baseSize = 60; // river
+
+    const mwLabel = isMW ? ` (${ctx.numOpponents} adv.)` : '';
+    const pfrNote = isPFR ? '' : ' Sans initiative préflop, leader avec range faible est rarement profitable — préférez un check pour laisser l\'agresseur c-bet, puis check-raise ou call selon votre main.';
+
+    // Pas de cartes connues : reco de sizing générique (comportement legacy)
+    if (!hs) {
+      if (streetKey === 'flop' && flop) return {
+        label: `C-bet ~${baseSize}% pot`, actionType: 'raise',
+        detail: `Board ${flop.label} (${flop.desc}) — sizing optimal : ~${baseSize}% du pot.${mwLabel}`
+      };
+      if (streetKey === 'turn') return {
+        label: `Bet ~${baseSize}% pot`, actionType: 'raise',
+        detail: `Turn ${drawy ? 'drawy — sizing grand (80-100%) pour les draws.' : 'sec — sizing standard 50-75%.'}${mwLabel}`
+      };
       return {
-        label: `C-bet ~${rec}% pot`, actionType: 'raise',
-        detail: `Board ${flop.label} (${flop.desc}) — sizing optimal : ~${rec}% du pot. ${tip}`
+        label: 'Bet ≥50% pot', actionType: 'raise',
+        detail: `River standard : bet 50%+ avec value et bluffs crédibles (blockers).${mwLabel}`
       };
     }
-    if (streetKey === 'turn' && flop) {
-      if (flop.category === 'drawy') return {
-        label: 'Bet 80-100% pot', actionType: 'raise',
-        detail: `Turn drawy (${flop.desc}) — mise grande 80-100% requise pour que les draws ne puissent pas appeler profitablement. Protégez vos mains fortes.`
-      };
+
+    // Si un villain a l'initiative préflop (PFR), default = check pour laisser PFR c-bet
+    const villainHasInitiative = ctx?.pfAggressorPos != null && !isPFR;
+    if (villainHasInitiative && hs.tier !== 'monster') {
+      const planNote = (hs.tier === 'strong') ? ' Plan : check-raise pour la value, ou check-call selon la dynamique.'
+        : (hs.tier === 'medium') ? ' Plan : check-call à un prix raisonnable, check-fold face à une pression forte.'
+        : (hs.tier === 'draw') ? ' Plan : check-call si le prix est correct (pot odds + implied odds), sinon check-fold.'
+        : ' Plan : check-fold sauf opportunité claire de bluff catch.';
       return {
-        label: 'Bet 50-75% pot', actionType: 'raise',
-        detail: `Turn sec (${flop?.desc || 'board sec'}) — sizing standard 50-75% du pot. Extrait de la valeur et continue le bluff sélectivement.`
+        label: `Check — laisser le PFR c-bet`, actionType: 'check',
+        detail: `${hs.desc}. ${ctx.pfAggressorPos === 'BU' ? 'BTN' : ctx.pfAggressorPos} a l'initiative préflop : check par défaut.${planNote}`
       };
     }
-    if (streetKey === 'river') return {
-      label: 'Bet ≥50% pot', actionType: 'raise',
-      detail: `River standard : bet 50%+ pour la valeur ET les bluffs crédibles. Combinez nuts et draws manqués (avec blockers). Évitez les petites mises.`
+    // Cas monster OOP vs PFR : lead pour la valeur/protection sur board drawy, check (pour check-raise) sinon
+    if (villainHasInitiative && hs.tier === 'monster') {
+      if (drawy) return {
+        label: `Lead value ~${baseSize}% — ${hs.madeDesc}`, actionType: 'raise',
+        detail: `${hs.desc}. ${ctx.pfAggressorPos === 'BU' ? 'BTN' : ctx.pfAggressorPos} a l'initiative préflop, mais sur board drawy votre main monstre justifie un lead pour la valeur et la protection (ne pas laisser un check arrière gratuit aux tirages).`
+      };
+      return {
+        label: `Check (plan check-raise) — ${hs.madeDesc}`, actionType: 'check',
+        detail: `${hs.desc}. Check pour laisser le PFR c-bet et déclencher un check-raise pour la valeur — construit le pot et déguise la force de votre main.`
+      };
+    }
+
+    // Monster / strong → value bet (hero a l'initiative)
+    if (hs.tier === 'monster' || hs.tier === 'strong') {
+      const size = isMW && drawy ? Math.min(100, baseSize + 15) : baseSize;
+      return {
+        label: `Bet value ~${size}% — ${hs.madeDesc}`, actionType: 'raise',
+        detail: `${hs.desc}. Misez pour la valeur${drawy ? ' et la protection (board drawy)' : ''}.${isMW ? ` Multiway${mwLabel} : sizing un peu plus gros pour ne pas donner de prix aux tirages.` : ''}${flop ? ` Board ${flop.label}.` : ''}`
+      };
+    }
+
+    // Medium → bet pour value/protection, sauf multiway drawy
+    if (hs.tier === 'medium') {
+      if (isMW && drawy) return {
+        label: 'Check — pot control', actionType: 'check',
+        detail: `${hs.desc}. Multiway${mwLabel} sur board drawy : check pour contrôler le pot, éviter la check-raise et garder votre range non-cappé. Vous pourrez call un bet adverse raisonnable.`
+      };
+      return {
+        label: `Bet value ~${baseSize}% — ${hs.madeDesc}`, actionType: 'raise',
+        detail: `${hs.desc}. Value/protection bet pour extraire des mains pires (draws, paires faibles).${isMW ? ` Multiway${mwLabel} : sizing modéré pour rester équilibré.` : ''}${flop ? ` Board ${flop.label}.` : ''}`
+      };
+    }
+
+    // Draw → semi-bluff HU, check multiway
+    if (hs.tier === 'draw') {
+      if (isMW || !isPFR) return {
+        label: 'Check — réaliser l\'équité', actionType: 'check',
+        detail: `${hs.desc}.${isMW ? ` Multiway${mwLabel} : les semi-bluffs perdent leur fold equity, préférez réaliser l'équité à pas cher.` : ''}${!isPFR ? pfrNote : ''}`
+      };
+      const size = drawy ? Math.max(60, baseSize) : Math.min(50, baseSize);
+      return {
+        label: `Semi-bluff ~${size}% — ${hs.draws.join(' + ')}`, actionType: 'raise',
+        detail: `${hs.desc}. Heads-up + initiative préflop : semi-bluff profitable (fold equity + équité directe quand call). ${drawy ? `Board drawy : sizing un peu plus grand.` : `Sizing petit pour ne pas se faire raise et garder le bluff peu coûteux.`}${flop ? ` Board ${flop.label}.` : ''}`
+      };
+    }
+
+    // Weak / weak-draw → check pour le showdown value
+    if (hs.tier === 'weak' || hs.tier === 'weak-draw') return {
+      label: 'Check — showdown value', actionType: 'check',
+      detail: `${hs.desc}. Misez et vous vous faites raise ou call par mieux. Check pour conserver le showdown value et bluff-catch à bon prix.${isMW ? ` Multiway${mwLabel} renforce le choix du check.` : ''}`
+    };
+
+    // Air → c-bet bluff seulement si PFR + HU + board ${flop?.label || ''} dry, sinon check
+    if (isPFR && !isMW && (extraDry || (flop?.category === 'dry')) && streetKey === 'flop') {
+      const size = Math.min(extraDry ? 33 : 50, baseSize);
+      return {
+        label: `C-bet bluff ~${size}% — ${flop.label}`, actionType: 'raise',
+        detail: `${hs.desc}. PFR + heads-up + board ${flop.label} : c-bet bluff exploitable car l'adversaire n'a souvent rien sur cette texture (avantage de range PFR). Sizing petit (${size}%) pour minimiser le risque.`
+      };
+    }
+    return {
+      label: 'Check — pas de spot de bluff', actionType: 'check',
+      detail: `${hs.desc}. ${isMW ? `Multiway${mwLabel} : c-bet bluff peu profitable (trop de joueurs pour generer du fold equity).` : !isPFR ? 'Sans initiative préflop, leader avec air manque de crédibilité — préférez check/fold ou check/bluff catch.' : drawy ? 'Board drawy : votre range PFR n\'a pas l\'avantage net, c-bet bluff peu profitable.' : 'River avec air : check, ou bluff sélectif avec des blockers spécifiques uniquement.'}`
     };
   }
 
-  // Hero face à une mise — pot odds + force de main hero
+  // Hero face à une mise — pot odds + force de main hero + contexte adverse
   const lastBet = [...actsBefore].reverse().find(a => a.action === 'raise' || a.action === 'allin');
   if (lastBet?.amount > 0) {
     const prevStreetKey = { flop: 'preflop', turn: 'flop', river: 'turn' }[streetKey];
@@ -915,55 +1095,77 @@ export function computeOptimalMove(hand, streetKey) {
     if (potBefore > 0) {
       const pctNeed = Math.round(toCall / (potBefore + toCall) * 100);
 
-      // Board cumulé jusqu'à la street courante
-      const board = [];
-      if (hand.streets?.flop?.cards) board.push(...hand.streets.flop.cards);
-      if (streetKey !== 'flop' && hand.streets?.turn?.cards) board.push(...hand.streets.turn.cards);
-      if (streetKey === 'river' && hand.streets?.river?.cards) board.push(...hand.streets.river.cards);
-
-      const hs = _heroHandStrength(hero.cards, board);
+      // Notes contextuelles (check-raise, multibarrel, multiway, donk)
+      const ctxNotes = [];
+      let harshSignal = false; // signal "range adverse très forte"
+      if (ctx?.isCheckRaise) { ctxNotes.push('check-raise (range très polarisée value/bluff fort)'); harshSignal = true; }
+      if (ctx?.oppBarrelsBefore >= 1 && streetKey === 'turn') { ctxNotes.push('2-barrel adverse (range crédibilisé)'); harshSignal = true; }
+      if (ctx?.oppBarrelsBefore >= 2 && streetKey === 'river') { ctxNotes.push('3-barrel adverse (range polarisée nuts/bluff)'); harshSignal = true; }
+      if (ctx?.isMultiway) { ctxNotes.push(`pot multiway (${ctx.numOpponents} adv. actifs)`); harshSignal = true; }
+      if (ctx?.isDonkBet) ctxNotes.push('donk bet (lead inhabituel, souvent polarisé)');
+      const ctxStr = ctxNotes.length ? ` Contexte : ${ctxNotes.join(', ')}.` : '';
 
       if (hs) {
         if (hs.tier === 'monster') return {
           label: `Raise value — ${hs.madeDesc}`, actionType: 'raise',
-          detail: `${hs.desc}. Main quasi-imbattable : misez pour la valeur. Relance recommandée pour construire le pot ; le call est acceptable contre un adversaire en bluff dont vous voulez laisser l'agression continuer. Le prix demandé (${pctNeed}%) est anecdotique ici.`
+          detail: `${hs.desc}. Main quasi-imbattable : misez pour la valeur.${ctxStr} Relance recommandée pour construire le pot ; le call est acceptable contre un adversaire en bluff dont vous voulez laisser l'agression continuer.`
         };
-        if (hs.tier === 'strong') return {
-          label: `Call value — ${hs.madeDesc}${hs.draws.length ? ' + tirage' : ''}`, actionType: 'call',
-          detail: `${hs.desc}. Main suffisamment forte pour défendre face à cette mise (${pctNeed}% requis). Call automatique au minimum ; envisagez une relance pour la valeur et la protection${hs.draws.length ? ' — votre équité combinée (made + tirage) est largement au-dessus du prix demandé' : ''}.`
-        };
+        if (hs.tier === 'strong') {
+          if (ctx?.isCheckRaise) return {
+            label: `Call value — ${hs.madeDesc}${hs.draws.length ? ' + tirage' : ''} (vs C/R)`, actionType: 'call',
+            detail: `${hs.desc}.${ctxStr} Face à un check-raise, évitez la sur-relance sans une main monstre — call pour réaliser l'équité et réévaluer la suite.`
+          };
+          return {
+            label: `Call value — ${hs.madeDesc}${hs.draws.length ? ' + tirage' : ''}`, actionType: 'call',
+            detail: `${hs.desc}. Main suffisamment forte pour défendre face à cette mise (${pctNeed}% requis).${ctxStr} Call automatique au minimum ; envisagez une relance pour la valeur et la protection${hs.draws.length ? ' — équité combinée (made + tirage) largement au-dessus du prix demandé' : ''}.`
+          };
+        }
         if (hs.tier === 'medium') {
+          // Contexte dur (C/R, multibarrel turn/river, multiway) → resserrer
+          if (harshSignal && pctNeed > 30) return {
+            label: `Fold — ${hs.madeDesc} face à signal fort (${pctNeed}% req.)`, actionType: 'fold',
+            detail: `${hs.desc}.${ctxStr} Une main medium ne bat pas le range crédibilisé adverse à ce prix (${pctNeed}%). Le fold protège votre stack ; conservez-le pour de meilleurs spots.`
+          };
+          if (harshSignal) return {
+            label: `Call très serré — ${hs.madeDesc} (${pctNeed}% req.)`, actionType: 'call',
+            detail: `${hs.desc}.${ctxStr} Le signal adverse est fort mais le prix (${pctNeed}%) reste correct — call de prudence sans pot building. Plan : check-fold sur les streets suivantes sauf amélioration nette.`
+          };
           if (pctNeed <= 40) return {
             label: `Call — ${hs.madeDesc} (${pctNeed}% éq. req.)`, actionType: 'call',
-            detail: `${hs.desc}. Prix demandé ${pctNeed}% — votre showdown value et équité directe justifient le call. Évitez les relances spéculatives sans information adverse supplémentaire.`
+            detail: `${hs.desc}. Prix demandé ${pctNeed}% — votre showdown value et équité directe justifient le call.${ctxStr} Évitez les relances spéculatives sans information adverse supplémentaire.`
           };
           return {
             label: `Call serré — ${hs.madeDesc} (${pctNeed}% éq. req.)`, actionType: 'call',
-            detail: `${hs.desc}. Prix élevé (${pctNeed}% requis) mais la main conserve une showdown value réelle. Call défendable contre un range polarisé/large ; envisagez le fold contre un profil très tight qui ne mise gros qu'avec du nutté.`
+            detail: `${hs.desc}. Prix élevé (${pctNeed}% requis) mais la main conserve une showdown value réelle.${ctxStr} Call défendable contre un range polarisé/large ; fold contre un profil très tight.`
           };
         }
         if (hs.tier === 'draw') {
+          // Multiway → meilleurs implied odds mais aussi plus de joueurs à battre
+          if (harshSignal && pctNeed > 30) return {
+            label: `Fold — tirage face à signal fort (${pctNeed}% req.)`, actionType: 'fold',
+            detail: `${hs.desc}.${ctxStr} L'adversaire représente un range trop fort pour caller un tirage sans implied odds excellentes. Fold sauf stack très profond et plan d'extraction clair.`
+          };
           if (pctNeed <= 35) return {
             label: `Call — tirage (${pctNeed}% éq. req.)`, actionType: 'call',
-            detail: `${hs.desc}. Pot odds (${pctNeed}%) inférieures ou égales à l'équité directe d'un tirage 8-9 outs (~32-35% par river, ~17-19% par carte). Call profitable, accentué par les implied odds quand vous complétez.`
+            detail: `${hs.desc}. Pot odds (${pctNeed}%) inférieures à l'équité directe d'un tirage 8-9 outs (~32-35% par river).${ctxStr} Call profitable, accentué par les implied odds.`
           };
           return {
             label: `Call selon implied odds — tirage (${pctNeed}% req.)`, actionType: 'call',
-            detail: `${hs.desc}. Prix au-dessus de l'équité directe (${pctNeed}% requis vs ~32-35% par river). Le call dépend des implied odds : valide si l'adversaire paiera large quand le tirage rentre, sinon fold.`
+            detail: `${hs.desc}. Prix au-dessus de l'équité directe (${pctNeed}% requis vs ~32-35%).${ctxStr} Call valide si l'adversaire paiera large quand le tirage rentre, sinon fold.`
           };
         }
         if (hs.tier === 'weak-draw') return {
           label: `Fold (sauf implied odds) — ${pctNeed}% req.`, actionType: 'fold',
-          detail: `${hs.desc} (~4 outs ≈ 16% par river). Prix de ${pctNeed}% trop cher sans implied odds claires. Fold par défaut ; call uniquement en stack profond face à un adversaire inducible.`
+          detail: `${hs.desc} (~4 outs ≈ 16% par river). Prix de ${pctNeed}% trop cher sans implied odds claires.${ctxStr} Fold par défaut ; call uniquement en stack profond face à un adversaire inducible.`
         };
         if (hs.tier === 'weak') return {
           label: `Fold / call serré — ${hs.madeDesc} (${pctNeed}% req.)`, actionType: 'fold',
-          detail: `${hs.desc}. Showdown value limitée face à cette mise (${pctNeed}% requis). Fold est l'option par défaut ; envisagez le call uniquement contre un profil très agressif/large.`
+          detail: `${hs.desc}. Showdown value limitée face à cette mise (${pctNeed}% requis).${ctxStr} Fold par défaut ; call uniquement contre un profil très agressif/large.`
         };
         // air
         return {
           label: `Fold — aucune équité (${pctNeed}% req.)`, actionType: 'fold',
-          detail: `${hs.desc}. Sans paire ni tirage, vous n'avez pas l'équité pour défendre (${pctNeed}% requis). Fold systématique sauf bluff catch très spécifique avec read fort sur l'adversaire.`
+          detail: `${hs.desc}. Sans paire ni tirage, vous n'avez pas l'équité pour défendre (${pctNeed}% requis).${ctxStr} Fold systématique sauf bluff catch très spécifique avec read fort.`
         };
       }
 
