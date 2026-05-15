@@ -692,38 +692,49 @@ export function showTourneyPickerModal(field, onPick) {
 
   const hands = loadAllHands();
   const values = [...new Set(hands.map(h => h.tourneyName).filter(Boolean))].sort();
-
-  if (values.length === 0) {
-    showModal(`
-      <div class="modal-title">Choose a tournament</div>
-      <div class="modal-subtitle">No tournament recorded in history.</div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" id="pick-close">Close</button>
-      </div>`, {
-      id: 'modal-tourney-picker',
-      onMount: () => $('pick-close').addEventListener('click', closeModal)
-    });
-    return;
-  }
-
   const current = loadTourneyName();
-  const itemsHtml = values.map((v, i) => {
-    const active = v === current;
-    return `<button class="tourney-pick-item${active ? ' is-active' : ''}" data-idx="${i}">
-      <span class="history-tourney-tag">${v}</span>
-    </button>`;
-  }).join('');
+
+  const itemsHtml = values.length === 0
+    ? '<div class="modal-subtitle">No tournament recorded in history.</div>'
+    : `<div class="tourney-pick-list">${values.map((v, i) => {
+        const active = v === current;
+        return `<button class="tourney-pick-item${active ? ' is-active' : ''}" data-idx="${i}">
+          <span class="history-tourney-tag">${v}</span>
+        </button>`;
+      }).join('')}</div>`;
 
   showModal(`
     <div class="modal-title">Choose a tournament</div>
-    <div class="modal-subtitle">Select the tournament name to associate with the session.</div>
-    <div class="tourney-pick-list">${itemsHtml}</div>
+    <div class="modal-subtitle">Type a new name or pick one from history.</div>
+    <div class="tourney-pick-row">
+      <div class="tourney-pick-input-block">
+        <label class="history-field-label" for="pick-name-input">Tournament name</label>
+        <input class="stack-input" id="pick-name-input" type="text" value="${current || ''}" placeholder="Tournament name">
+      </div>
+      <div class="tourney-pick-select-block">
+        <label class="history-field-label">From history</label>
+        ${itemsHtml}
+      </div>
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="pick-close">Close</button>
+      <button class="btn btn-secondary" id="pick-close">Cancel</button>
+      <button class="btn btn-primary" id="pick-save">OK</button>
     </div>`, {
     id: 'modal-tourney-picker',
     onMount: () => {
+      const input = $('pick-name-input');
+      input.focus();
+      input.select();
+      const commit = () => {
+        const v = input.value.trim();
+        if (!v) { showToast('Tournament name required', 2000); return; }
+        saveTourneyName(v);
+        closeModal();
+        if (onPick) onPick();
+      };
       $('pick-close').addEventListener('click', closeModal);
+      $('pick-save').addEventListener('click', commit);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); });
       document.querySelectorAll('.tourney-pick-item').forEach(btn => {
         btn.addEventListener('click', () => {
           saveTourneyName(values[+btn.dataset.idx]);
