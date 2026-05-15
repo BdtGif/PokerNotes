@@ -477,12 +477,18 @@ export function showHistoryModal(filters = {}) {
             SharkScope
           </button>
         </div>
-        <label class="history-field-label" for="tourney-name-input">Tournament name</label>
-        <input class="stack-input" id="tourney-name-input" type="text"
-          value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
-          autocomplete="off" autocorrect="off" spellcheck="false">
-        <label class="history-field-label" for="tourney-date-input">Tournament date</label>
-        <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
+        <div class="tourney-row">
+          <div class="tourney-field tourney-field--name">
+            <label class="history-field-label" for="tourney-name-input">Tournament name</label>
+            <input class="stack-input" id="tourney-name-input" type="text"
+              value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
+              autocomplete="off" autocorrect="off" spellcheck="false">
+          </div>
+          <div class="tourney-field tourney-field--date">
+            <label class="history-field-label" for="tourney-date-input">Date</label>
+            <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
+          </div>
+        </div>
         <div class="modal-actions">
           <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
           <button class="btn btn-primary" id="pseudo-save">Save</button>

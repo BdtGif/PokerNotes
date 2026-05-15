@@ -42,6 +42,14 @@
 .pseudo-row {
   display: flex; gap: 8px; align-items: stretch;
 }
+.tourney-row {
+  display: flex; gap: 10px; justify-content: space-between; align-items: flex-end;
+}
+.tourney-field { display: flex; flex-direction: column; min-width: 0; }
+.tourney-field--name { flex: 1; }
+.tourney-field--date { flex: 0 0 auto; }
+.tourney-field .stack-input { width: 100%; box-sizing: border-box; }
+.tourney-field .history-field-label { margin-top: 10px; }
 .pseudo-input-wrap { position: relative; flex: 1; min-width: 0; }
 .pseudo-input-wrap .stack-input { width: 100%; box-sizing: border-box; }
 .ss-suggest {
