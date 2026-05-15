@@ -363,12 +363,19 @@ function renderTableTags() {
     overlay.id = 'table-tags-overlay';
     overlay.className = 'table-tags';
     tableArea.appendChild(overlay);
+    overlay.addEventListener('click', e => {
+      const target = e.target.closest('[data-pick]');
+      if (!target) return;
+      const field = target.dataset.pick;
+      // Import dynamique pour éviter le cycle au chargement
+      import('./history.js').then(m => m.showTourneyPickerModal(field, render));
+    });
   }
   const name = loadTourneyName();
   const date = loadTourneyDate();
   const parts = [];
-  if (name) parts.push(`<span class="history-tourney-tag">${name}</span>`);
-  if (date) parts.push(`<span class="history-date-tag">${_formatTourneyDateShort(date)}</span>`);
+  if (name) parts.push(`<span class="history-tourney-tag is-clickable" data-pick="name" title="Changer de tournoi">${name}</span>`);
+  if (date) parts.push(`<span class="history-date-tag is-clickable" data-pick="date" title="Changer de date">${_formatTourneyDateShort(date)}</span>`);
   overlay.innerHTML = parts.join('');
   overlay.style.display = parts.length ? 'flex' : 'none';
 }
