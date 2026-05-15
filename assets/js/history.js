@@ -317,15 +317,29 @@ function _formatTourneyDate(iso) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 }
 
-export function showHistoryModal() {
-  const hands = loadAllHands().slice().reverse();
-  const count = hands.length;
+export function showHistoryModal(filters = {}) {
+  const allHands = loadAllHands().slice().reverse();
+  const totalCount = allHands.length;
   const pseudo = loadPseudo();
   const tourneyName = loadTourneyName();
   const tourneyDate = loadTourneyDate();
 
+  const uniquePseudos = [...new Set(allHands.map(h => h.pseudo).filter(Boolean))].sort();
+  const uniqueTourneys = [...new Set(allHands.map(h => h.tourneyName).filter(Boolean))].sort();
+
+  const fPseudo = filters.pseudo || '';
+  const fTourney = filters.tourney || '';
+  const hands = allHands.filter(h =>
+    (!fPseudo  || h.pseudo === fPseudo) &&
+    (!fTourney || h.tourneyName === fTourney)
+  );
+  const count = hands.length;
+  const filtersActive = fPseudo || fTourney;
+
  const listHtml = count === 0
-    ? '<div class="history-empty">Aucune main sauvegardée.<br>Jouez une main pour commencer.</div>'
+    ? (filtersActive
+        ? '<div class="history-empty">Aucune main ne correspond aux filtres.</div>'
+        : '<div class="history-empty">Aucune main sauvegardée.<br>Jouez une main pour commencer.</div>')
     : hands.map(hand => {
         const d = new Date(hand.date);
         const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -384,8 +398,22 @@ export function showHistoryModal() {
 </div>`;
       }).join('');
 
+  const titleCount = filtersActive ? `${count}/${totalCount}` : `${totalCount}`;
+  const filtersHtml = (uniquePseudos.length || uniqueTourneys.length) ? `
+    <div class="history-filters">
+      <select class="history-filter-select" id="hist-filter-pseudo">
+        <option value="">Pseudo : tous</option>
+        ${uniquePseudos.map(p => `<option value="${p}"${p === fPseudo ? ' selected' : ''}>${p}</option>`).join('')}
+      </select>
+      <select class="history-filter-select" id="hist-filter-tourney">
+        <option value="">Tournoi : tous</option>
+        ${uniqueTourneys.map(t => `<option value="${t}"${t === fTourney ? ' selected' : ''}>${t}</option>`).join('')}
+      </select>
+      ${filtersActive ? '<button class="history-filter-clear" id="hist-filter-clear" title="Réinitialiser">✕</button>' : ''}
+    </div>` : '';
+
   const html = `
-    <div class="modal-title">Historique (${count})</div>
+    <div class="modal-title">Historique (${titleCount})</div>
     <button class="history-row" id="hist-pseudo-edit">
       <span class="history-row-cell">
         <span class="history-row-label">Pseudo</span>
@@ -408,6 +436,7 @@ export function showHistoryModal() {
         <input type="file" id="hist-import-input" accept=".json,application/json" style="display:none">
       </label>
     </div>
+    ${filtersHtml}
     <div class="history-list">${listHtml}</div>
     <div class="modal-actions">
       <button class="btn btn-secondary" id="hist-close">Close</button>
@@ -417,6 +446,17 @@ export function showHistoryModal() {
   showModal(html, { id: 'modal-history',
   onMount: () => {
     $('hist-close').addEventListener('click', closeModal);
+
+    const fPseudoSel = $('hist-filter-pseudo');
+    const fTourneySel = $('hist-filter-tourney');
+    if (fPseudoSel) fPseudoSel.addEventListener('change', () => {
+      showHistoryModal({ pseudo: fPseudoSel.value, tourney: fTourneySel.value });
+    });
+    if (fTourneySel) fTourneySel.addEventListener('change', () => {
+      showHistoryModal({ pseudo: fPseudoSel.value, tourney: fTourneySel.value });
+    });
+    const clrFilterBtn = $('hist-filter-clear');
+    if (clrFilterBtn) clrFilterBtn.addEventListener('click', () => showHistoryModal());
 
     $('hist-pseudo-edit').addEventListener('click', () => {
       const curPseudo = loadPseudo();

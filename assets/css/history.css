@@ -54,6 +54,33 @@
 .history-toolbar .hist-btn { flex: 1; padding: 10px; font-size: 12px; text-align: center; }
 .history-import-label { cursor: pointer; }
 
+/* ---------- FILTRES ---------- */
+.history-filters {
+  display: flex; gap: 8px; align-items: center;
+  margin: 0 0 10px;
+}
+.history-filter-select {
+  height: 2em;
+  flex: 1; min-width: 0;
+  background: black;
+  color: var(--cream);
+  border-radius: 6px;
+  padding: 6px 8px; font-size: 12px;
+  cursor: pointer;
+}
+.history-filter-select:focus { outline: 1px solid var(--gold); }
+.history-filter-clear {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: rgba(232,212,184,0.06);
+  color: rgba(232,212,184,0.7);
+  border: 1px solid rgba(232,212,184,0.18);
+  font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.history-filter-clear:active { background: rgba(232,212,184,0.14); }
+
 /* ---------- LISTE DES MAINS ---------- */
 .history-list {
   display: flex; flex-direction: column; gap: 8px;
