@@ -1,29 +1,51 @@
 /* history.css — Styles de l'onglet Historique et toast de sauvegarde */
 
-/* ---------- LIGNE PSEUDO ---------- */
-.history-pseudo-row {
-  display: flex; align-items: center; gap: 8px;
+/* ---------- LIGNE SESSION (Pseudo / Tournoi / Date) ---------- */
+.history-row {
+  display: flex; align-items: stretch; gap: 8px;
   width: 100%; background: var(--gold-bg);
   border: 1px solid var(--gold-border); border-radius: 8px;
   padding: 8px 12px; margin-bottom: 10px; cursor: pointer;
   text-align: left; transition: background 0.15s;
 }
-.history-pseudo-row:active { background: rgba(200,156,60,0.2); }
+.history-row:active { background: rgba(200,156,60,0.2); }
 @keyframes pseudoPulse {
   0%, 100% { background: var(--gold-bg); border-color: var(--gold-border); }
   50%       { background: rgba(200,156,60,0.3); border-color: rgba(200,156,60,0.75); }
 }
-.history-pseudo-row--pulse { animation: pseudoPulse 0.4s ease 2; }
-.history-pseudo-label {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--gold); flex-shrink: 0;
+.history-row--pulse { animation: pseudoPulse 0.4s ease 2; }
+.history-row-cell {
+  display: flex; flex-direction: column; gap: 2px;
+  flex: 1; min-width: 0;
+  padding-right: 8px;
+  border-right: 1px solid rgba(200,156,60,0.18);
 }
-.history-pseudo-value {
-  flex: 1; font-size: 13px; font-weight: 600; color: var(--cream);
+.history-row-cell:last-of-type { border-right: none; padding-right: 0; }
+.history-row-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--gold);
 }
-.history-pseudo-empty { color: rgba(232,212,184,0.35); font-style: italic; font-weight: 400; }
-.history-pseudo-icon {
-  font-size: 12px; color: rgba(232,212,184,0.35); flex-shrink: 0;
+.history-row-value {
+  font-size: 13px; font-weight: 600; color: var(--cream);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.history-row-empty { color: rgba(232,212,184,0.35); font-style: italic; font-weight: 400; }
+.history-row-icon {
+  font-size: 12px; color: rgba(232,212,184,0.35);
+  flex-shrink: 0; align-self: center;
+}
+.history-field-label {
+  display: block; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold); margin: 10px 0 4px;
+}
+.confirm-row {
+  display: flex; gap: 10px; margin-bottom: 6px;
+}
+.confirm-field { flex: 1; min-width: 0; }
+.confirm-field .stack-input { width: 100%; box-sizing: border-box; }
+.history-tags--center {
+  justify-content: center; margin: 14px 0 6px;
 }
 
 /* ---------- TOOLBAR (export / import) ---------- */
@@ -31,6 +53,33 @@
 .history-toolbar { display: flex; gap: 8px; margin: 8px 0 12px; }
 .history-toolbar .hist-btn { flex: 1; padding: 10px; font-size: 12px; text-align: center; }
 .history-import-label { cursor: pointer; }
+
+/* ---------- FILTRES ---------- */
+.history-filters {
+  display: flex; gap: 8px; align-items: center;
+  margin: 0 0 10px;
+}
+.history-filter-select {
+  height: 2em;
+  flex: 1; min-width: 0;
+  background: black;
+  color: var(--cream);
+  border-radius: 6px;
+  padding: 6px 8px; font-size: 12px;
+  cursor: pointer;
+}
+.history-filter-select:focus { outline: 1px solid var(--gold); }
+.history-filter-clear {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: rgba(232,212,184,0.06);
+  color: rgba(232,212,184,0.7);
+  border: 1px solid rgba(232,212,184,0.18);
+  font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.history-filter-clear:active { background: rgba(232,212,184,0.14); }
 
 /* ---------- LISTE DES MAINS ---------- */
 .history-list {
@@ -196,6 +245,37 @@
 
 #solver-button {
 display: flex; align-items: center; gap: 6px;justify-content: space-between;
+}
+.history-tags {
+  display: flex; align-items: center; gap: 4px;
+  flex-wrap: wrap; justify-content: flex-end;
+}
+.history-pseudo-tag,
+.history-tourney-tag,
+.history-date-tag {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 700;
+  border-radius: 6px;
+  padding: 3px 8px;
+  letter-spacing: 0.04em;
+  max-width: 120px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.history-pseudo-tag {
+  color: var(--gold);
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-border);
+}
+.history-tourney-tag {
+  color: var(--cream);
+  background: rgba(232,212,184,0.08);
+  border: 1px solid rgba(232,212,184,0.25);
+}
+.history-date-tag {
+  color: rgba(232,212,184,0.75);
+  background: rgba(232,212,184,0.04);
+  border: 1px solid rgba(232,212,184,0.18);
+  font-weight: 600;
 }
 /* ---------- MODALE ANALYSE — PAS DE SCROLLBAR ---------- */
 #modal-analysis { scrollbar-width: none; }
