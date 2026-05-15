@@ -39,9 +39,6 @@
   text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--gold); margin: 10px 0 4px;
 }
-.pseudo-row {
-  display: flex; gap: 8px; align-items: stretch;
-}
 .tourney-row {
   display: flex; gap: 10px; justify-content: space-between; align-items: flex-end;
 }
@@ -75,17 +72,6 @@
   text-transform: uppercase; letter-spacing: 0.04em;
   white-space: nowrap; flex-shrink: 0;
 }
-.btn-sharkscope {
-  flex-shrink: 0; padding: 0 12px; border-radius: 8px;
-  background: rgba(56,189,248,0.12); color: #7dd3fc;
-  border: 1px solid rgba(56,189,248,0.35);
-  font-size: 11px; font-weight: 700; cursor: pointer;
-  text-transform: uppercase; letter-spacing: 0.04em;
-  font-family: inherit; white-space: nowrap;
-  transition: background 0.15s, opacity 0.15s;
-}
-.btn-sharkscope:active { background: rgba(56,189,248,0.25); }
-.btn-sharkscope:disabled { opacity: 0.4; cursor: not-allowed; }
 .confirm-row {
   display: flex; gap: 10px; margin-bottom: 6px;
 }
