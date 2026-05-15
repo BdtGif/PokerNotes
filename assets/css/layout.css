@@ -74,6 +74,22 @@
   max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   pointer-events: auto;
 }
+/* Tags du table-area : même habillage que .btn-back-bottom */
+.table-tags .history-pseudo-tag,
+.table-tags .history-tourney-tag,
+.table-tags .history-date-tag,
+.table-tags .network-tag,
+.table-tags [class*="network-tag--"] {
+  background: var(--s3);
+  color: var(--cream);
+  border: 1px solid var(--b);
+}
+/* Tags éditables : bordure = couleur du texte */
+.table-tags .history-pseudo-tag,
+.table-tags .history-tourney-tag,
+.table-tags .history-date-tag {
+  border-color: currentColor;
+}
 /* Couleurs par réseau — fallback générique pour les inconnus */
 .network-tag--generic     { color: var(--cream); background: rgba(232,212,184,0.08); border: 1px solid rgba(232,212,184,0.25); }
 .network-tag--winamax     { color: #ffd166; background: rgba(255,165,0,0.18);  border: 1px solid rgba(255,165,0,0.5); }
@@ -280,4 +296,8 @@
   padding: 10px 12px;
   background: var(--s1);
   border-top: 1px solid var(--b); z-index: 10; gap: 8px;
+}
+
+#table-tags-overlay-left, #table-tags-overlay {
+  opacity: 0.5
 }
