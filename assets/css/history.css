@@ -114,6 +114,20 @@
 .history-filter-clear:active { background: rgba(232,212,184,0.14); }
 
 /* ---------- PICKER DE TOURNOI ---------- */
+.tourney-pick-row {
+  display: flex; flex-direction: row; gap: 10px;
+  align-items: stretch;
+  margin: 10px 0;
+}
+.tourney-pick-input-block,
+.tourney-pick-select-block {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.tourney-pick-select-block .tourney-pick-list {
+  margin: 0;
+  flex: 1 1 auto;
+}
 .tourney-pick-list {
   display: flex; flex-direction: column; gap: 6px;
   max-height: 50vh; overflow-y: auto;
