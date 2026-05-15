@@ -363,7 +363,6 @@ export function showHistoryModal() {
   </div>
   <div id="solver-button">
     ${cardsRow}
-    ${analysisHtml}
   </div>
 </div>`;
       }).join('');
