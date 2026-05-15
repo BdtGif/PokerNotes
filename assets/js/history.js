@@ -465,17 +465,11 @@ export function showHistoryModal(filters = {}) {
         <div class="modal-title">Session</div>
         <div class="modal-subtitle">Pseudo, tournament and date associated with saved hands.</div>
         <label class="history-field-label" for="pseudo-input">Pseudo</label>
-        <div class="pseudo-row">
-          <div class="pseudo-input-wrap">
-            <input class="stack-input" id="pseudo-input" type="text"
-              value="${curPseudo}" placeholder="e.g. John" maxlength="24"
-              autocomplete="off" autocorrect="off" spellcheck="false">
-            <div class="ss-suggest" id="ss-suggest" hidden></div>
-          </div>
-          <button type="button" class="btn-sharkscope" id="sharkscope-btn"
-            title="Voir les statistiques sur SharkScope"${curPseudo ? '' : ' disabled'}>
-            SharkScope
-          </button>
+        <div class="pseudo-input-wrap">
+          <input class="stack-input" id="pseudo-input" type="text"
+            value="${curPseudo}" placeholder="e.g. John" maxlength="24"
+            autocomplete="off" autocorrect="off" spellcheck="false">
+          <div class="ss-suggest" id="ss-suggest" hidden></div>
         </div>
         <div class="tourney-row">
           <div class="tourney-field tourney-field--name">
@@ -497,7 +491,6 @@ export function showHistoryModal(filters = {}) {
           const pseudoInput = $('pseudo-input');
           const nameInput = $('tourney-name-input');
           const dateInput = $('tourney-date-input');
-          const sharkBtn = $('sharkscope-btn');
           pseudoInput.focus(); pseudoInput.select();
           const save = () => {
             savePseudo(pseudoInput.value);
@@ -506,14 +499,7 @@ export function showHistoryModal(filters = {}) {
             closeModal();
             showHistoryModal();
           };
-          sharkBtn.addEventListener('click', () => {
-            const p = pseudoInput.value.trim();
-            if (!p) return;
-            savePseudo(p);
-            const url = `https://fr.sharkscope.com/#Player-Statistics/networks/*/players/${encodeURIComponent(p)}`;
-            window.open(url, '_blank', 'noopener,noreferrer');
-          });
-          setupSharkscopeAutocomplete(pseudoInput, $('ss-suggest'), sharkBtn);
+          setupSharkscopeAutocomplete(pseudoInput, $('ss-suggest'));
           $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
           $('pseudo-save').addEventListener('click', save);
           [pseudoInput, nameInput].forEach(inp => {
@@ -825,7 +811,7 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
  * Réponse XML : <Response><SearchSuggestionsResponse><PlayerSuggestions>
  *   <Player name="..." network="..." country="..." countryName="..."/>...
  */
-function setupSharkscopeAutocomplete(input, dropdown, sharkBtn) {
+function setupSharkscopeAutocomplete(input, dropdown) {
   // Proxies CORS testés (allorigins.win était en panne, corsproxy.io est passé en payant).
   // corsmirror.com fonctionne et a ACAO: *. Si plusieurs sont fournis, on essaie dans l'ordre.
   const PROXIES = [
@@ -838,9 +824,6 @@ function setupSharkscopeAutocomplete(input, dropdown, sharkBtn) {
   let controller = null;
   let activeIdx = -1;
   let items = [];
-
-  const syncBtn = () => { sharkBtn.disabled = !input.value.trim(); };
-  syncBtn();
 
   const hide = () => {
     dropdown.hidden = true;
@@ -865,7 +848,6 @@ function setupSharkscopeAutocomplete(input, dropdown, sharkBtn) {
         e.preventDefault();
         const i = parseInt(el.dataset.i, 10);
         input.value = items[i].name;
-        syncBtn();
         hide();
         input.focus();
       });
@@ -907,7 +889,6 @@ function setupSharkscopeAutocomplete(input, dropdown, sharkBtn) {
   };
 
   input.addEventListener('input', () => {
-    syncBtn();
     const term = input.value.trim();
     clearTimeout(timer);
     if (term.length < MIN_LEN) { hide(); return; }
@@ -921,7 +902,6 @@ function setupSharkscopeAutocomplete(input, dropdown, sharkBtn) {
     else if (e.key === 'Enter' && activeIdx >= 0) {
       e.preventDefault(); e.stopPropagation();
       input.value = items[activeIdx].name;
-      syncBtn();
       hide();
     } else if (e.key === 'Escape') { hide(); }
   });
