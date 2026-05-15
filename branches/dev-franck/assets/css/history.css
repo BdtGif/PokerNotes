@@ -39,6 +39,53 @@
   text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--gold); margin: 10px 0 4px;
 }
+.pseudo-row {
+  display: flex; gap: 8px; align-items: stretch;
+}
+.tourney-row {
+  display: flex; gap: 10px; justify-content: space-between; align-items: flex-end;
+}
+.tourney-field { display: flex; flex-direction: column; min-width: 0; }
+.tourney-field--name { flex: 1; }
+.tourney-field--date { flex: 0 0 auto; }
+.tourney-field .stack-input { width: 100%; box-sizing: border-box; }
+.tourney-field .history-field-label { margin-top: 10px; }
+.pseudo-input-wrap { position: relative; flex: 1; min-width: 0; }
+.pseudo-input-wrap .stack-input { width: 100%; box-sizing: border-box; }
+.ss-suggest {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+  margin-top: 4px; max-height: 240px; overflow-y: auto;
+  background: var(--s2); border: 1px solid var(--b); border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+.ss-suggest-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 10px; gap: 10px; cursor: pointer;
+  border-bottom: 1px solid rgba(232,212,184,0.06);
+}
+.ss-suggest-item:last-child { border-bottom: none; }
+.ss-suggest-item:hover,
+.ss-suggest-active { background: rgba(56,189,248,0.12); }
+.ss-suggest-name {
+  color: var(--cream); font-size: 13px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+}
+.ss-suggest-net {
+  color: rgba(232,212,184,0.55); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap; flex-shrink: 0;
+}
+.btn-sharkscope {
+  flex-shrink: 0; padding: 0 12px; border-radius: 8px;
+  background: rgba(56,189,248,0.12); color: #7dd3fc;
+  border: 1px solid rgba(56,189,248,0.35);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  font-family: inherit; white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn-sharkscope:active { background: rgba(56,189,248,0.25); }
+.btn-sharkscope:disabled { opacity: 0.4; cursor: not-allowed; }
 .confirm-row {
   display: flex; gap: 10px; margin-bottom: 6px;
 }
