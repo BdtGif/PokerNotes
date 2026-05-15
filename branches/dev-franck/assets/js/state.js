@@ -28,7 +28,6 @@ export const HAND_RANK_LABELS = [
 export const state = {
   step: 'setup',
   sb: 25, bb: 50,
-  sbManual: false,
   anteEnabled: false,
   ante: 0,
   bbAnteMode: false,
