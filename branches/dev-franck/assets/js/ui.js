@@ -395,8 +395,7 @@ function renderTableTags() {
   const meta = loadPseudoMeta();
   const leftParts = [];
   if (pseudo) {
-    const flag = meta.country ? `<span class="tag-flag">${countryCodeToFlag(meta.country)}</span>` : '';
-    leftParts.push(`<span class="history-pseudo-tag is-clickable" data-pick="pseudo" title="Change pseudo">${flag}${pseudo}</span>`);
+    leftParts.push(`<span class="history-pseudo-tag is-clickable" data-pick="pseudo" title="Change pseudo">${pseudo}</span>`);
   }
   const networks = (meta.networks || []).filter(n => n && n.network);
   for (const net of networks) {
