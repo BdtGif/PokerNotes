@@ -197,6 +197,18 @@
 #solver-button {
 display: flex; align-items: center; gap: 6px;justify-content: space-between;
 }
+.history-pseudo-tag {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 700;
+  color: var(--gold);
+  background: var(--gold-bg);
+  border: 1px solid var(--gold-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  letter-spacing: 0.04em;
+  max-width: 120px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 /* ---------- MODALE ANALYSE — PAS DE SCROLLBAR ---------- */
 #modal-analysis { scrollbar-width: none; }
 #modal-analysis::-webkit-scrollbar { display: none; }

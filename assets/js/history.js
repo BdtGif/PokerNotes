@@ -363,6 +363,7 @@ export function showHistoryModal() {
   </div>
   <div id="solver-button">
     ${cardsRow}
+    ${(hand.pseudo || pseudo) ? `<span class="history-pseudo-tag">${hand.pseudo || pseudo}</span>` : ''}
   </div>
 </div>`;
       }).join('');
@@ -493,7 +494,7 @@ export function exportHistory() {
   const dateStr = new Date().toISOString().split('T')[0];
   const pseudo = loadPseudo();
   const filename = pseudo ? `${pseudo}_${dateStr}.json` : `poker_hands_${dateStr}.json`;
-  const payload = JSON.stringify({ version: '10.2', exportDate: new Date().toISOString(), hands }, null, 2);
+  const payload = JSON.stringify({ version: '10.2', exportDate: new Date().toISOString(), pseudo, hands }, null, 2);
   const blob = new Blob([payload], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -511,12 +512,14 @@ export function handleImportFile(file) {
     try {
       const parsed = JSON.parse(e.target.result);
       const incoming = Array.isArray(parsed) ? parsed : (parsed.hands || []);
+      const filePseudo = !Array.isArray(parsed) ? (parsed.pseudo || '') : '';
       if (!Array.isArray(incoming) || incoming.length === 0)
         throw new Error('Aucune main trouvée dans ce fichier.');
       const existingMap = new Map(loadAllHands().map(h => [h.id, h]));
       let added = 0, replaced = 0;
       for (const hand of incoming) {
         if (!hand.id || !hand.date) continue;
+        if (!hand.pseudo && filePseudo) hand.pseudo = filePseudo;
         existingMap.has(hand.id) ? replaced++ : added++;
         existingMap.set(hand.id, hand);
       }
