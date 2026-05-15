@@ -10,6 +10,7 @@
 import { state } from './state.js';
 import { getActivePlayers, showToast } from './utils.js';
 import { saveHand, buildHandRecord } from './storage.js';
+import { showTourneyConfirmModal } from './history.js';
 import { evaluateHand } from './evaluator.js';
 import { rebuildPlayers, postBlindsForPreview } from './player.js';
 // Imports circulaires (safe en ES6 — utilisés uniquement dans les corps de fonctions)
@@ -443,9 +444,14 @@ export function handleGlobalBack() {
  * Appelé après chaque chemin menant à state.step === 'result'.
  */
 export function concludeHand() {
-  saveHand(buildHandRecord());
-  showToast('Main sauvegardée');
   render();
+  showTourneyConfirmModal(
+    () => {
+      saveHand(buildHandRecord());
+      showToast('Main sauvegardée');
+    },
+    () => { showToast('Main non sauvegardée'); }
+  );
 }
 
 /**

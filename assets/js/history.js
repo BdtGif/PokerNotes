@@ -2,7 +2,12 @@
 
 import { $, fmtChips, cardLabel, showToast } from './utils.js';
 import { state } from './state.js';
-import { loadAllHands, saveAllHands, deleteHand, loadPseudo, savePseudo } from './storage.js';
+import {
+  loadAllHands, saveAllHands, deleteHand,
+  loadPseudo, savePseudo,
+  loadTourneyName, saveTourneyName,
+  loadTourneyDate, saveTourneyDate
+} from './storage.js';
 import { showModal, closeModal } from './ui.js';
 import { analyzeHandPreflop, analyzePostflopAction, analyzeMultibarrelLine, classifyFlop, normalizeHand, computeOptimalMove } from './ranges.js';
 
@@ -306,13 +311,35 @@ function _showAnalysisModal(hand) {
   });
 }
 
-export function showHistoryModal() {
-  const hands = loadAllHands().slice().reverse();
-  const count = hands.length;
+function _formatTourneyDate(iso) {
+  if (!iso) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+export function showHistoryModal(filters = {}) {
+  const allHands = loadAllHands().slice().reverse();
+  const totalCount = allHands.length;
   const pseudo = loadPseudo();
+  const tourneyName = loadTourneyName();
+  const tourneyDate = loadTourneyDate();
+
+  const uniquePseudos = [...new Set(allHands.map(h => h.pseudo).filter(Boolean))].sort();
+  const uniqueTourneys = [...new Set(allHands.map(h => h.tourneyName).filter(Boolean))].sort();
+
+  const fPseudo = filters.pseudo || '';
+  const fTourney = filters.tourney || '';
+  const hands = allHands.filter(h =>
+    (!fPseudo  || h.pseudo === fPseudo) &&
+    (!fTourney || h.tourneyName === fTourney)
+  );
+  const count = hands.length;
+  const filtersActive = fPseudo || fTourney;
 
  const listHtml = count === 0
-    ? '<div class="history-empty">Aucune main sauvegardée.<br>Jouez une main pour commencer.</div>'
+    ? (filtersActive
+        ? '<div class="history-empty">Aucune main ne correspond aux filtres.</div>'
+        : '<div class="history-empty">Aucune main sauvegardée.<br>Jouez une main pour commencer.</div>')
     : hands.map(hand => {
         const d = new Date(hand.date);
         const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -346,7 +373,6 @@ export function showHistoryModal() {
         return `<div class="history-item ${outcomeClass}">
   <div class="history-item-header">
     <div class="history-meta">
-      <span class="history-date">${dateStr} ${timeStr}</span>
       <span class="history-blinds">${hand.sb}/${hand.bb}${anteTag} · ${inHandCount} Players</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -363,17 +389,45 @@ export function showHistoryModal() {
   </div>
   <div id="solver-button">
     ${cardsRow}
-    ${analysisHtml}
+    <div class="history-tags">
+      ${hand.pseudo ? `<span class="history-pseudo-tag">${hand.pseudo}</span>` : ''}
+      ${hand.tourneyName ? `<span class="history-tourney-tag">${hand.tourneyName}</span>` : ''}
+      ${hand.tourneyDate ? `<span class="history-date-tag">${_formatTourneyDate(hand.tourneyDate)}</span>` : ''}
+    </div>
   </div>
 </div>`;
       }).join('');
 
+  const titleCount = filtersActive ? `${count}/${totalCount}` : `${totalCount}`;
+  const filtersHtml = (uniquePseudos.length || uniqueTourneys.length) ? `
+    <div class="history-filters">
+      <select class="history-filter-select" id="hist-filter-pseudo">
+        <option value="">Pseudo : tous</option>
+        ${uniquePseudos.map(p => `<option value="${p}"${p === fPseudo ? ' selected' : ''}>${p}</option>`).join('')}
+      </select>
+      <select class="history-filter-select" id="hist-filter-tourney">
+        <option value="">Tournoi : tous</option>
+        ${uniqueTourneys.map(t => `<option value="${t}"${t === fTourney ? ' selected' : ''}>${t}</option>`).join('')}
+      </select>
+      ${filtersActive ? '<button class="history-filter-clear" id="hist-filter-clear" title="Réinitialiser">✕</button>' : ''}
+    </div>` : '';
+
   const html = `
-    <div class="modal-title">Historique (${count})</div>
-    <button class="history-pseudo-row" id="hist-pseudo-edit">
-      <span class="history-pseudo-label">Pseudo</span>
-      <span class="history-pseudo-value">${pseudo || '<span class="history-pseudo-empty">Non défini</span>'}</span>
-      <span class="history-pseudo-icon">✎</span>
+    <div class="modal-title">Historique (${titleCount})</div>
+    <button class="history-row" id="hist-pseudo-edit">
+      <span class="history-row-cell">
+        <span class="history-row-label">Pseudo</span>
+        <span class="history-row-value">${pseudo || '<span class="history-row-empty">Non défini</span>'}</span>
+      </span>
+      <span class="history-row-cell">
+        <span class="history-row-label">Tournoi</span>
+        <span class="history-row-value">${tourneyName || '<span class="history-row-empty">—</span>'}</span>
+      </span>
+      <span class="history-row-cell">
+        <span class="history-row-label">Date</span>
+        <span class="history-row-value">${tourneyDate ? _formatTourneyDate(tourneyDate) : '<span class="history-row-empty">—</span>'}</span>
+      </span>
+      <span class="history-row-icon">✎</span>
     </button>
     <div class="history-toolbar">
       <button class="btn btn-secondary hist-btn${!pseudo && count > 0 ? ' hist-btn--blocked' : ''}" id="hist-export"${count === 0 ? ' disabled' : ''}>↓ Exporter</button>
@@ -382,6 +436,7 @@ export function showHistoryModal() {
         <input type="file" id="hist-import-input" accept=".json,application/json" style="display:none">
       </label>
     </div>
+    ${filtersHtml}
     <div class="history-list">${listHtml}</div>
     <div class="modal-actions">
       <button class="btn btn-secondary" id="hist-close">Close</button>
@@ -392,29 +447,54 @@ export function showHistoryModal() {
   onMount: () => {
     $('hist-close').addEventListener('click', closeModal);
 
+    const fPseudoSel = $('hist-filter-pseudo');
+    const fTourneySel = $('hist-filter-tourney');
+    if (fPseudoSel) fPseudoSel.addEventListener('change', () => {
+      showHistoryModal({ pseudo: fPseudoSel.value, tourney: fTourneySel.value });
+    });
+    if (fTourneySel) fTourneySel.addEventListener('change', () => {
+      showHistoryModal({ pseudo: fPseudoSel.value, tourney: fTourneySel.value });
+    });
+    const clrFilterBtn = $('hist-filter-clear');
+    if (clrFilterBtn) clrFilterBtn.addEventListener('click', () => showHistoryModal());
+
     $('hist-pseudo-edit').addEventListener('click', () => {
-      const cur = loadPseudo();
+      const curPseudo = loadPseudo();
+      const curName = loadTourneyName();
+      const curDate = loadTourneyDate();
       showModal(`
-        <div class="modal-title">Ton pseudo</div>
-        <div class="modal-subtitle">Utilisé pour nommer le fichier d'export.</div>
+        <div class="modal-title">Session</div>
+        <div class="modal-subtitle">Pseudo, tournoi et date associés aux mains sauvegardées.</div>
+        <label class="history-field-label" for="pseudo-input">Pseudo</label>
         <input class="stack-input" id="pseudo-input" type="text"
-          value="${cur}" placeholder="Ex : John" maxlength="24"
+          value="${curPseudo}" placeholder="Ex : John" maxlength="24"
           autocomplete="off" autocorrect="off" spellcheck="false">
+        <label class="history-field-label" for="tourney-name-input">Nom du tournoi</label>
+        <input class="stack-input" id="tourney-name-input" type="text"
+          value="${curName}" placeholder="Ex : WSOP Main Event" maxlength="48"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+        <label class="history-field-label" for="tourney-date-input">Date du tournoi</label>
+        <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
         <div class="modal-actions">
           <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
           <button class="btn btn-primary" id="pseudo-save">Save</button>
         </div>`, { id: 'modal-pseudo',
         onMount: () => {
-          const input = $('pseudo-input');
-          input.focus(); input.select();
-          $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
-          $('pseudo-save').addEventListener('click', () => {
-            savePseudo(input.value);
+          const pseudoInput = $('pseudo-input');
+          const nameInput = $('tourney-name-input');
+          const dateInput = $('tourney-date-input');
+          pseudoInput.focus(); pseudoInput.select();
+          const save = () => {
+            savePseudo(pseudoInput.value);
+            saveTourneyName(nameInput.value);
+            saveTourneyDate(dateInput.value);
             closeModal();
             showHistoryModal();
-          });
-          input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { savePseudo(input.value); closeModal(); showHistoryModal(); }
+          };
+          $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
+          $('pseudo-save').addEventListener('click', save);
+          [pseudoInput, nameInput].forEach(inp => {
+            inp.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
           });
         }
       });
@@ -425,8 +505,8 @@ export function showHistoryModal() {
       if (!loadPseudo()) {
         showToast('Définis ton pseudo pour exporter', 2500);
         const pseudoRow = $('hist-pseudo-edit');
-        pseudoRow.classList.add('history-pseudo-row--pulse');
-        setTimeout(() => pseudoRow.classList.remove('history-pseudo-row--pulse'), 800);
+        pseudoRow.classList.add('history-row--pulse');
+        setTimeout(() => pseudoRow.classList.remove('history-row--pulse'), 800);
       } else {
         exportHistory();
       }
@@ -494,7 +574,9 @@ export function exportHistory() {
   const dateStr = new Date().toISOString().split('T')[0];
   const pseudo = loadPseudo();
   const filename = pseudo ? `${pseudo}_${dateStr}.json` : `poker_hands_${dateStr}.json`;
-  const payload = JSON.stringify({ version: '10.2', exportDate: new Date().toISOString(), hands }, null, 2);
+  const tourneyName = loadTourneyName();
+  const tourneyDate = loadTourneyDate();
+  const payload = JSON.stringify({ version: '10.2', exportDate: new Date().toISOString(), pseudo, tourneyName, tourneyDate, hands }, null, 2);
   const blob = new Blob([payload], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -512,12 +594,18 @@ export function handleImportFile(file) {
     try {
       const parsed = JSON.parse(e.target.result);
       const incoming = Array.isArray(parsed) ? parsed : (parsed.hands || []);
+      const filePseudo = !Array.isArray(parsed) ? (parsed.pseudo || '') : '';
+      const fileTourneyName = !Array.isArray(parsed) ? (parsed.tourneyName || '') : '';
+      const fileTourneyDate = !Array.isArray(parsed) ? (parsed.tourneyDate || '') : '';
       if (!Array.isArray(incoming) || incoming.length === 0)
         throw new Error('Aucune main trouvée dans ce fichier.');
       const existingMap = new Map(loadAllHands().map(h => [h.id, h]));
       let added = 0, replaced = 0;
       for (const hand of incoming) {
         if (!hand.id || !hand.date) continue;
+        if (!hand.pseudo && filePseudo) hand.pseudo = filePseudo;
+        if (!hand.tourneyName && fileTourneyName) hand.tourneyName = fileTourneyName;
+        if (!hand.tourneyDate && fileTourneyDate) hand.tourneyDate = fileTourneyDate;
         existingMap.has(hand.id) ? replaced++ : added++;
         existingMap.set(hand.id, hand);
       }
@@ -540,4 +628,71 @@ export function handleImportFile(file) {
     }
   };
   reader.readAsText(file);
+}
+
+export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
+  const curName = loadTourneyName();
+  const curDate = loadTourneyDate();
+  const editing = opts.forceEdit || !curName || !curDate;
+
+  const body = !editing
+    ? `
+      <div class="modal-title">Sauvegarder la main</div>
+      <div class="modal-subtitle">Tournoi et date associés à la main :</div>
+      <div class="history-tags history-tags--center">
+        <span class="history-tourney-tag">${curName}</span>
+        <span class="history-date-tag">${_formatTourneyDate(curDate)}</span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
+        <button class="btn btn-secondary" id="confirm-edit">Éditer</button>
+        <button class="btn btn-primary" id="confirm-save">OK</button>
+      </div>`
+    : `
+      <div class="modal-title">Sauvegarder la main</div>
+      <div class="modal-subtitle">Confirme le tournoi et la date associés.</div>
+      <div class="confirm-row">
+        <div class="confirm-field">
+          <label class="history-field-label" for="confirm-tourney-name">Nom du tournoi</label>
+          <input class="stack-input" id="confirm-tourney-name" type="text"
+            value="${curName}" placeholder="Ex : WSOP Main Event" maxlength="48"
+            autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="confirm-field">
+          <label class="history-field-label" for="confirm-tourney-date">Date du tournoi</label>
+          <input class="stack-input" id="confirm-tourney-date" type="date" value="${curDate}">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
+        <button class="btn btn-primary" id="confirm-save">Sauvegarder</button>
+      </div>`;
+
+  showModal(body, {
+    id: 'modal-confirm-save',
+    onMount: () => {
+      const nameInput = $('confirm-tourney-name');
+      const dateInput = $('confirm-tourney-date');
+      if (nameInput) { nameInput.focus(); nameInput.select(); }
+      const commit = () => {
+        if (nameInput) saveTourneyName(nameInput.value);
+        if (dateInput) saveTourneyDate(dateInput.value);
+        closeModal();
+        if (onConfirm) onConfirm();
+      };
+      $('confirm-cancel').addEventListener('click', () => {
+        closeModal();
+        if (onCancel) onCancel();
+      });
+      $('confirm-save').addEventListener('click', commit);
+      const editBtn = $('confirm-edit');
+      if (editBtn) editBtn.addEventListener('click', () => {
+        closeModal();
+        showTourneyConfirmModal(onConfirm, onCancel, { forceEdit: true });
+      });
+      [nameInput, dateInput].forEach(inp => {
+        if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); });
+      });
+    }
+  });
 }
