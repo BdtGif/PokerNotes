@@ -80,6 +80,26 @@
 }
 .history-filter-clear:active { background: rgba(232,212,184,0.14); }
 
+/* ---------- PICKER DE TOURNOI ---------- */
+.tourney-pick-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 50vh; overflow-y: auto;
+  margin: 10px 0;
+  scrollbar-width: none;
+}
+.tourney-pick-list::-webkit-scrollbar { display: none; }
+.tourney-pick-item {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--s2); border: 1px solid var(--b);
+  border-radius: 8px; padding: 8px 10px;
+  cursor: pointer; text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.tourney-pick-item:active { background: var(--s3); border-color: var(--gold); }
+.tourney-pick-item.is-active {
+  border-color: var(--gold); background: var(--gold-bg);
+}
+
 /* ---------- LISTE DES MAINS ---------- */
 .history-list {
   display: flex; flex-direction: column; gap: 8px;
