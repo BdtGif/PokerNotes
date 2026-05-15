@@ -630,6 +630,82 @@ export function handleImportFile(file) {
   reader.readAsText(file);
 }
 
+export function showTourneyPickerModal(field, onPick) {
+  if (field === 'date') {
+    const current = loadTourneyDate();
+    showModal(`
+      <div class="modal-title">Choisir une date</div>
+      <div class="modal-subtitle">Date à associer à la session.</div>
+      <label class="history-field-label" for="pick-date-input">Date</label>
+      <input class="stack-input" id="pick-date-input" type="date" value="${current}">
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="pick-close">Annuler</button>
+        <button class="btn btn-primary" id="pick-save">OK</button>
+      </div>`, {
+      id: 'modal-tourney-picker',
+      onMount: () => {
+        const input = $('pick-date-input');
+        input.focus();
+        const commit = () => {
+          const v = input.value.trim();
+          if (!v) { showToast('Date requise', 2000); return; }
+          saveTourneyDate(v);
+          closeModal();
+          if (onPick) onPick();
+        };
+        $('pick-close').addEventListener('click', closeModal);
+        $('pick-save').addEventListener('click', commit);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); });
+      }
+    });
+    return;
+  }
+
+  const hands = loadAllHands();
+  const values = [...new Set(hands.map(h => h.tourneyName).filter(Boolean))].sort();
+
+  if (values.length === 0) {
+    showModal(`
+      <div class="modal-title">Choisir un tournoi</div>
+      <div class="modal-subtitle">Aucun tournoi enregistré dans l'historique.</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="pick-close">Fermer</button>
+      </div>`, {
+      id: 'modal-tourney-picker',
+      onMount: () => $('pick-close').addEventListener('click', closeModal)
+    });
+    return;
+  }
+
+  const current = loadTourneyName();
+  const itemsHtml = values.map((v, i) => {
+    const active = v === current;
+    return `<button class="tourney-pick-item${active ? ' is-active' : ''}" data-idx="${i}">
+      <span class="history-tourney-tag">${v}</span>
+    </button>`;
+  }).join('');
+
+  showModal(`
+    <div class="modal-title">Choisir un tournoi</div>
+    <div class="modal-subtitle">Sélectionne le nom du tournoi à associer à la session.</div>
+    <div class="tourney-pick-list">${itemsHtml}</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="pick-close">Fermer</button>
+    </div>`, {
+    id: 'modal-tourney-picker',
+    onMount: () => {
+      $('pick-close').addEventListener('click', closeModal);
+      document.querySelectorAll('.tourney-pick-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          saveTourneyName(values[+btn.dataset.idx]);
+          closeModal();
+          if (onPick) onPick();
+        });
+      });
+    }
+  });
+}
+
 export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
   const curPseudo = loadPseudo();
   const curName = loadTourneyName();
