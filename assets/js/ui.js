@@ -426,10 +426,10 @@ export function openRaiseModal(player, idx) {
 
   const html = `
     <div class="modal-title-row">
-      <span class="modal-pot-tag">Pot ${fmtAmount(state.pot)}</span>
+      <span class="modal-pot-tag" id="rm-pot">Pot ${fmtAmount(state.pot)}</span>
       <div class="modal-title-stack">
         <div class="modal-title">${label}</div>
-        <div class="modal-subtitle">Min : ${fmtAmount(minRaise)}${stackCap ? ' · Max : ' + fmtAmount(stackCap) : ''}</div>
+        <div class="modal-subtitle" id="rm-bounds">Min : ${fmtAmount(minRaise)}${stackCap ? ' · Max : ' + fmtAmount(stackCap) : ''}</div>
       </div>
     </div>
     <div class="gauge-presets">
@@ -512,6 +512,8 @@ export function openRaiseModal(player, idx) {
         $('rm-unit-bb').classList.toggle('active', newUnit === 'bb');
         $('rm-unit-chips').classList.toggle('active', newUnit === 'chips');
         gaugeValEl.textContent = fmtDisplay(parseFloat(gauge.value));
+        $('rm-pot').textContent = 'Pot ' + fmtAmount(state.pot);
+        $('rm-bounds').textContent = 'Min : ' + fmtAmount(minRaise) + (stackCap ? ' · Max : ' + fmtAmount(stackCap) : '');
         render();
       };
       $('rm-unit-bb').addEventListener('click', () => switchUnit('bb'));
