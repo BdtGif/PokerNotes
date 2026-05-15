@@ -380,7 +380,6 @@ export function showHistoryModal(filters = {}) {
         <button class="history-unit-btn chips-btn active" data-unit="chips">Tks</button>
         <button class="history-unit-btn bb-btn" data-unit="bb">BB</button>
       </div>
-      <button class="history-delete-btn" data-id="${hand.id}">✕</button>
     </div>
   </div>
   <div class="history-summary">${summary}</div>
