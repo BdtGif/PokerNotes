@@ -398,9 +398,10 @@ function renderTableTags() {
     const flag = meta.country ? `<span class="tag-flag">${countryCodeToFlag(meta.country)}</span>` : '';
     leftParts.push(`<span class="history-pseudo-tag is-clickable" data-pick="pseudo" title="Change pseudo">${flag}${pseudo}</span>`);
   }
-  if (meta.network) {
-    const slug = _networkSlug(meta.network);
-    leftParts.push(`<span class="network-tag network-tag--${slug}" title="${meta.network}">${networkShortLabel(meta.network)}</span>`);
+  const networks = (meta.networks || []).filter(n => n && n.network);
+  for (const net of networks) {
+    const slug = _networkSlug(net.network);
+    leftParts.push(`<span class="network-tag network-tag--${slug}" title="${net.network}">${networkShortLabel(net.network)}</span>`);
   }
   leftOverlay.innerHTML = leftParts.join('');
   leftOverlay.style.display = leftParts.length ? 'flex' : 'none';

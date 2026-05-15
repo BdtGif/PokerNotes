@@ -12,13 +12,24 @@ export const TOURNEY_DATE_KEY = 'pokernotes_tourney_date';
 export function loadPseudo() { return localStorage.getItem(PSEUDO_KEY) || ''; }
 export function savePseudo(pseudo) { localStorage.setItem(PSEUDO_KEY, pseudo.trim()); }
 
-/** @returns {{network?:string, country?:string, countryName?:string}} */
+/**
+ * @returns {{country?:string, networks?: Array<{network:string, country?:string}>}}
+ */
 export function loadPseudoMeta() {
-  try { return JSON.parse(localStorage.getItem(PSEUDO_META_KEY) || '{}'); }
-  catch (_) { return {}; }
+  try {
+    const m = JSON.parse(localStorage.getItem(PSEUDO_META_KEY) || '{}');
+    // Migration depuis l'ancien format {network, country}
+    if (m && m.network && !m.networks) {
+      return { country: m.country, networks: [{ network: m.network, country: m.country }] };
+    }
+    return m || {};
+  } catch (_) { return {}; }
 }
 export function savePseudoMeta(meta) {
-  if (!meta || !meta.network) { localStorage.removeItem(PSEUDO_META_KEY); return; }
+  if (!meta || !meta.networks || !meta.networks.length) {
+    localStorage.removeItem(PSEUDO_META_KEY);
+    return;
+  }
   localStorage.setItem(PSEUDO_META_KEY, JSON.stringify(meta));
 }
 

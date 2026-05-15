@@ -9,7 +9,7 @@ import {
   loadTourneyName, saveTourneyName,
   loadTourneyDate, saveTourneyDate
 } from './storage.js';
-import { showModal, closeModal } from './ui.js';
+import { showModal, closeModal, render } from './ui.js';
 import { analyzeHandPreflop, analyzePostflopAction, analyzeMultibarrelLine, classifyFlop, normalizeHand, computeOptimalMove } from './ranges.js';
 
 function fmtHistAmt(n, bb) {
@@ -630,21 +630,26 @@ export function showSessionEditModal(onClose) {
       const nameInput = $('tourney-name-input');
       const dateInput = $('tourney-date-input');
       pseudoInput.focus(); pseudoInput.select();
-      let pickedMeta = null;
+      const ac = setupSharkscopeAutocomplete(pseudoInput, $('ss-suggest'));
       const save = () => {
         const val = pseudoInput.value.trim();
         savePseudo(val);
-        if (pickedMeta && pickedMeta.name === val) {
-          savePseudoMeta({ network: pickedMeta.network, country: pickedMeta.country });
+        const matches = ac.getMatchesFor(val);
+        if (matches.length) {
+          const country = (matches.find(m => m.country) || matches[0]).country;
+          savePseudoMeta({
+            country,
+            networks: matches.map(m => ({ network: m.network, country: m.country }))
+          });
         } else {
           savePseudoMeta(null);
         }
         saveTourneyName(nameInput.value);
         saveTourneyDate(dateInput.value);
         closeModal();
+        render();
         if (onClose) onClose();
       };
-      setupSharkscopeAutocomplete(pseudoInput, $('ss-suggest'), (p) => { pickedMeta = p; });
       $('pseudo-cancel').addEventListener('click', () => { closeModal(); if (onClose) onClose(); });
       $('pseudo-save').addEventListener('click', save);
       [pseudoInput, nameInput].forEach(inp => {
@@ -838,7 +843,8 @@ function setupSharkscopeAutocomplete(input, dropdown, onPick) {
   let timer = null;
   let controller = null;
   let activeIdx = -1;
-  let items = [];
+  let items = [];          // suggestions actuellement affichées
+  let lastResults = [];    // dernier fetch — conservé après hide() pour le lookup au save
 
   const hide = () => {
     dropdown.hidden = true;
@@ -849,6 +855,7 @@ function setupSharkscopeAutocomplete(input, dropdown, onPick) {
 
   const render = (players) => {
     items = players;
+    lastResults = players;
     if (!players.length) { hide(); return; }
     dropdown.innerHTML = players.map((p, i) => `
       <div class="ss-suggest-item" data-i="${i}">
@@ -907,7 +914,7 @@ function setupSharkscopeAutocomplete(input, dropdown, onPick) {
   input.addEventListener('input', () => {
     const term = input.value.trim();
     clearTimeout(timer);
-    if (term.length < MIN_LEN) { hide(); return; }
+    if (term.length < MIN_LEN) { hide(); lastResults = []; return; }
     timer = setTimeout(() => fetchSuggestions(term), DEBOUNCE);
   });
 
@@ -924,6 +931,15 @@ function setupSharkscopeAutocomplete(input, dropdown, onPick) {
   });
 
   input.addEventListener('blur', () => setTimeout(hide, 150));
+
+  /** Toutes les entrées SharkScope dont le nom == value (insensible casse). */
+  return {
+    getMatchesFor(name) {
+      const n = (name || '').trim().toLowerCase();
+      if (!n) return [];
+      return lastResults.filter(p => (p.name || '').toLowerCase() === n);
+    }
+  };
 }
 
 function escapeHtml(s) {
