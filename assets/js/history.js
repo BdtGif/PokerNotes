@@ -338,7 +338,7 @@ export function showHistoryModal(filters = {}) {
 
  const listHtml = count === 0
     ? (filtersActive
-        ? '<div class="history-empty">Aucune main ne correspond aux filtres.</div>'
+        ? '<div class="history-empty">No hands match the filters.</div>'
         : '<div class="history-empty">Aucune main sauvegardée.<br>Jouez une main pour commencer.</div>')
     : hands.map(hand => {
         const d = new Date(hand.date);
@@ -401,14 +401,14 @@ export function showHistoryModal(filters = {}) {
   const filtersHtml = (uniquePseudos.length || uniqueTourneys.length) ? `
     <div class="history-filters">
       <select class="history-filter-select" id="hist-filter-pseudo">
-        <option value="">Pseudo : tous</option>
+        <option value="">Pseudo: all</option>
         ${uniquePseudos.map(p => `<option value="${p}"${p === fPseudo ? ' selected' : ''}>${p}</option>`).join('')}
       </select>
       <select class="history-filter-select" id="hist-filter-tourney">
-        <option value="">Tournoi : tous</option>
+        <option value="">Tournament: all</option>
         ${uniqueTourneys.map(t => `<option value="${t}"${t === fTourney ? ' selected' : ''}>${t}</option>`).join('')}
       </select>
-      ${filtersActive ? '<button class="history-filter-clear" id="hist-filter-clear" title="Réinitialiser">✕</button>' : ''}
+      ${filtersActive ? '<button class="history-filter-clear" id="hist-filter-clear" title="Reset">✕</button>' : ''}
     </div>` : '';
 
   const html = `
@@ -416,10 +416,10 @@ export function showHistoryModal(filters = {}) {
     <button class="history-row" id="hist-pseudo-edit">
       <span class="history-row-cell">
         <span class="history-row-label">Pseudo</span>
-        <span class="history-row-value">${pseudo || '<span class="history-row-empty">Non défini</span>'}</span>
+        <span class="history-row-value">${pseudo || '<span class="history-row-empty">Not set</span>'}</span>
       </span>
       <span class="history-row-cell">
-        <span class="history-row-label">Tournoi</span>
+        <span class="history-row-label">Tournament</span>
         <span class="history-row-value">${tourneyName || '<span class="history-row-empty">—</span>'}</span>
       </span>
       <span class="history-row-cell">
@@ -463,16 +463,16 @@ export function showHistoryModal(filters = {}) {
       const curDate = loadTourneyDate();
       showModal(`
         <div class="modal-title">Session</div>
-        <div class="modal-subtitle">Pseudo, tournoi et date associés aux mains sauvegardées.</div>
+        <div class="modal-subtitle">Pseudo, tournament and date associated with saved hands.</div>
         <label class="history-field-label" for="pseudo-input">Pseudo</label>
         <input class="stack-input" id="pseudo-input" type="text"
-          value="${curPseudo}" placeholder="Ex : John" maxlength="24"
+          value="${curPseudo}" placeholder="e.g. John" maxlength="24"
           autocomplete="off" autocorrect="off" spellcheck="false">
-        <label class="history-field-label" for="tourney-name-input">Nom du tournoi</label>
+        <label class="history-field-label" for="tourney-name-input">Tournament name</label>
         <input class="stack-input" id="tourney-name-input" type="text"
-          value="${curName}" placeholder="Ex : WSOP Main Event" maxlength="48"
+          value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
           autocomplete="off" autocorrect="off" spellcheck="false">
-        <label class="history-field-label" for="tourney-date-input">Date du tournoi</label>
+        <label class="history-field-label" for="tourney-date-input">Tournament date</label>
         <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
         <div class="modal-actions">
           <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
@@ -633,12 +633,12 @@ export function showTourneyPickerModal(field, onPick) {
   if (field === 'date') {
     const current = loadTourneyDate();
     showModal(`
-      <div class="modal-title">Choisir une date</div>
-      <div class="modal-subtitle">Date à associer à la session.</div>
+      <div class="modal-title">Choose a date</div>
+      <div class="modal-subtitle">Date to associate with the session.</div>
       <label class="history-field-label" for="pick-date-input">Date</label>
       <input class="stack-input" id="pick-date-input" type="date" value="${current}">
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="pick-close">Annuler</button>
+        <button class="btn btn-secondary" id="pick-close">Cancel</button>
         <button class="btn btn-primary" id="pick-save">OK</button>
       </div>`, {
       id: 'modal-tourney-picker',
@@ -647,7 +647,7 @@ export function showTourneyPickerModal(field, onPick) {
         input.focus();
         const commit = () => {
           const v = input.value.trim();
-          if (!v) { showToast('Date requise', 2000); return; }
+          if (!v) { showToast('Date required', 2000); return; }
           saveTourneyDate(v);
           closeModal();
           if (onPick) onPick();
@@ -665,10 +665,10 @@ export function showTourneyPickerModal(field, onPick) {
 
   if (values.length === 0) {
     showModal(`
-      <div class="modal-title">Choisir un tournoi</div>
-      <div class="modal-subtitle">Aucun tournoi enregistré dans l'historique.</div>
+      <div class="modal-title">Choose a tournament</div>
+      <div class="modal-subtitle">No tournament recorded in history.</div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="pick-close">Fermer</button>
+        <button class="btn btn-secondary" id="pick-close">Close</button>
       </div>`, {
       id: 'modal-tourney-picker',
       onMount: () => $('pick-close').addEventListener('click', closeModal)
@@ -685,11 +685,11 @@ export function showTourneyPickerModal(field, onPick) {
   }).join('');
 
   showModal(`
-    <div class="modal-title">Choisir un tournoi</div>
-    <div class="modal-subtitle">Sélectionne le nom du tournoi à associer à la session.</div>
+    <div class="modal-title">Choose a tournament</div>
+    <div class="modal-subtitle">Select the tournament name to associate with the session.</div>
     <div class="tourney-pick-list">${itemsHtml}</div>
     <div class="modal-actions">
-      <button class="btn btn-secondary" id="pick-close">Fermer</button>
+      <button class="btn btn-secondary" id="pick-close">Close</button>
     </div>`, {
     id: 'modal-tourney-picker',
     onMount: () => {
@@ -714,40 +714,40 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
 
   const body = !editing
     ? `
-      <div class="modal-title">Sauvegarder la main</div>
-      <div class="modal-subtitle">Pseudo, tournoi et date associés à la main :</div>
+      <div class="modal-title">Save hand</div>
+      <div class="modal-subtitle">Pseudo, tournament and date associated with the hand:</div>
       <div class="history-tags">
         <span class="history-pseudo-tag">${curPseudo}</span>
-        <span>Tournois : <span class="history-tourney-tag">${curName}</span></span>
-        <span>Date : <span class="history-date-tag">${_formatTourneyDate(curDate)}</span></span>
+        <span>Tournament: <span class="history-tourney-tag">${curName}</span></span>
+        <span>Date: <span class="history-date-tag">${_formatTourneyDate(curDate)}</span></span>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
-        <button class="btn btn-secondary" id="confirm-edit">Éditer</button>
+        <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-secondary" id="confirm-edit">Edit</button>
         <button class="btn btn-primary" id="confirm-save">OK</button>
       </div>`
     : `
-      <div class="modal-title">Sauvegarder la main</div>
-      <div class="modal-subtitle">Pseudo, tournoi et date sont obligatoires pour sauvegarder.</div>
+      <div class="modal-title">Save hand</div>
+      <div class="modal-subtitle">Pseudo, tournament and date are required to save.</div>
       <label class="history-field-label" for="confirm-pseudo">Pseudo</label>
       <input class="stack-input" id="confirm-pseudo" type="text"
-        value="${curPseudo}" placeholder="Ex : John" maxlength="24"
+        value="${curPseudo}" placeholder="e.g. John" maxlength="24"
         autocomplete="off" autocorrect="off" spellcheck="false">
       <div class="confirm-row">
         <div class="confirm-field">
-          <label class="history-field-label" for="confirm-tourney-name">Nom du tournoi</label>
+          <label class="history-field-label" for="confirm-tourney-name">Tournament name</label>
           <input class="stack-input" id="confirm-tourney-name" type="text"
-            value="${curName}" placeholder="Ex : WSOP Main Event" maxlength="48"
+            value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
             autocomplete="off" autocorrect="off" spellcheck="false">
         </div>
         <div class="confirm-field">
-          <label class="history-field-label" for="confirm-tourney-date">Date du tournoi</label>
+          <label class="history-field-label" for="confirm-tourney-date">Tournament date</label>
           <input class="stack-input" id="confirm-tourney-date" type="date" value="${curDate}">
         </div>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
-        <button class="btn btn-primary" id="confirm-save">Sauvegarder</button>
+        <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-primary" id="confirm-save">Save</button>
       </div>`;
 
   showModal(body, {
@@ -766,7 +766,7 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
           const nVal = nameInput.value.trim();
           const dVal = dateInput.value.trim();
           if (!pVal || !nVal || !dVal) {
-            showToast('Pseudo, tournoi et date sont obligatoires', 2500);
+            showToast('Pseudo, tournament and date are required', 2500);
             const missing = !pVal ? pseudoInput : !nVal ? nameInput : dateInput;
             missing.focus();
             return;

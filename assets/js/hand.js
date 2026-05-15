@@ -448,9 +448,9 @@ export function concludeHand() {
   showTourneyConfirmModal(
     () => {
       saveHand(buildHandRecord());
-      showToast('Main sauvegardée');
+      showToast('Hand saved');
     },
-    () => { showToast('Main non sauvegardée'); }
+    () => { showToast('Hand not saved'); }
   );
 }
 

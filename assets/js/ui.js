@@ -374,8 +374,8 @@ function renderTableTags() {
   const name = loadTourneyName();
   const date = loadTourneyDate();
   const parts = [];
-  if (name) parts.push(`<span class="history-tourney-tag is-clickable" data-pick="name" title="Changer de tournoi">${name}</span>`);
-  if (date) parts.push(`<span class="history-date-tag is-clickable" data-pick="date" title="Changer de date">${_formatTourneyDateShort(date)}</span>`);
+  if (name) parts.push(`<span class="history-tourney-tag is-clickable" data-pick="name" title="Change tournament">${name}</span>`);
+  if (date) parts.push(`<span class="history-date-tag is-clickable" data-pick="date" title="Change date">${_formatTourneyDateShort(date)}</span>`);
   overlay.innerHTML = parts.join('');
   overlay.style.display = parts.length ? 'flex' : 'none';
 }
