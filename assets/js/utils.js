@@ -59,6 +59,27 @@ export function getEffectiveAnte() {
 }
 
 /**
+ * Convertit un code pays ISO-2 (FR, US, GB…) en emoji drapeau.
+ * @param {string} code @returns {string}
+ */
+export function countryCodeToFlag(code) {
+  if (!code || code.length !== 2) return '';
+  const base = 0x1F1A5;
+  const c = code.toUpperCase();
+  return String.fromCodePoint(base + c.charCodeAt(0), base + c.charCodeAt(1));
+}
+
+/**
+ * Renvoie le label court d'un réseau SharkScope.
+ * Ex: "PokerStars(FR-ES-PT)" → "PokerStars".
+ * @param {string} network @returns {string}
+ */
+export function networkShortLabel(network) {
+  if (!network) return '';
+  return network.replace(/\s*\(.*\)\s*$/, '').trim();
+}
+
+/**
  * Affiche un toast de notification temporaire.
  * @param {string} msg
  * @param {number} [duration=2000] en millisecondes

@@ -57,12 +57,35 @@
   display: flex; gap: 4px; z-index: 5;
   pointer-events: none;
 }
+.table-tags--left { left: 10px; right: auto; }
 .table-tags .is-clickable {
   pointer-events: auto; cursor: pointer;
 }
 .table-tags .is-clickable:active {
   filter: brightness(1.15);
 }
+.table-tags .tag-flag {
+  margin-right: 4px; font-size: 12px; line-height: 1;
+}
+.table-tags .network-tag {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 3px 8px; border-radius: 6px;
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  pointer-events: auto;
+}
+/* Couleurs par réseau — fallback générique pour les inconnus */
+.network-tag--generic     { color: var(--cream); background: rgba(232,212,184,0.08); border: 1px solid rgba(232,212,184,0.25); }
+.network-tag--winamax     { color: #ffd166; background: rgba(255,165,0,0.18);  border: 1px solid rgba(255,165,0,0.5); }
+.network-tag--winamax-fr  { color: #ffd166; background: rgba(255,165,0,0.18);  border: 1px solid rgba(255,165,0,0.5); }
+.network-tag--pokerstars  { color: #ef9a9a; background: rgba(211,47,47,0.22);  border: 1px solid rgba(211,47,47,0.55); }
+.network-tag--ggnetwork   { color: #ff8a80; background: rgba(229,57,53,0.20);  border: 1px solid rgba(229,57,53,0.55); }
+.network-tag--ggpoker     { color: #ff8a80; background: rgba(229,57,53,0.20);  border: 1px solid rgba(229,57,53,0.55); }
+.network-tag--partypoker  { color: #ffcc80; background: rgba(230,81,0,0.22);   border: 1px solid rgba(230,81,0,0.55); }
+.network-tag--wsop        { color: #ce93d8; background: rgba(123,31,162,0.22); border: 1px solid rgba(123,31,162,0.55); }
+.network-tag--wpn         { color: #ef9a9a; background: rgba(183,28,28,0.22);  border: 1px solid rgba(183,28,28,0.55); }
+.network-tag--pmu         { color: #90caf9; background: rgba(21,101,192,0.22); border: 1px solid rgba(21,101,192,0.55); }
+.network-tag--qqpk        { color: #80cbc4; background: rgba(0,121,107,0.22);  border: 1px solid rgba(0,121,107,0.55); }
 .table-svg { width: 100%; height: 100%; max-width: 600px; }
 
 /* ---------- SIÈGES ---------- */

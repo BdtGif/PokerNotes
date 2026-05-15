@@ -5,6 +5,7 @@ import { state } from './state.js';
 import {
   loadAllHands, saveAllHands, deleteHand,
   loadPseudo, savePseudo,
+  loadPseudoMeta, savePseudoMeta,
   loadTourneyName, saveTourneyName,
   loadTourneyDate, saveTourneyDate
 } from './storage.js';
@@ -457,57 +458,7 @@ export function showHistoryModal(filters = {}) {
     const clrFilterBtn = $('hist-filter-clear');
     if (clrFilterBtn) clrFilterBtn.addEventListener('click', () => showHistoryModal());
 
-    $('hist-pseudo-edit').addEventListener('click', () => {
-      const curPseudo = loadPseudo();
-      const curName = loadTourneyName();
-      const curDate = loadTourneyDate();
-      showModal(`
-        <div class="modal-title">Session</div>
-        <div class="modal-subtitle">Pseudo, tournament and date associated with saved hands.</div>
-        <label class="history-field-label" for="pseudo-input">Pseudo</label>
-        <div class="pseudo-input-wrap">
-          <input class="stack-input" id="pseudo-input" type="text"
-            value="${curPseudo}" placeholder="e.g. John" maxlength="24"
-            autocomplete="off" autocorrect="off" spellcheck="false">
-          <div class="ss-suggest" id="ss-suggest" hidden></div>
-        </div>
-        <div class="tourney-row">
-          <div class="tourney-field tourney-field--name">
-            <label class="history-field-label" for="tourney-name-input">Tournament name</label>
-            <input class="stack-input" id="tourney-name-input" type="text"
-              value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
-              autocomplete="off" autocorrect="off" spellcheck="false">
-          </div>
-          <div class="tourney-field tourney-field--date">
-            <label class="history-field-label" for="tourney-date-input">Date</label>
-            <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
-          <button class="btn btn-primary" id="pseudo-save">Save</button>
-        </div>`, { id: 'modal-pseudo',
-        onMount: () => {
-          const pseudoInput = $('pseudo-input');
-          const nameInput = $('tourney-name-input');
-          const dateInput = $('tourney-date-input');
-          pseudoInput.focus(); pseudoInput.select();
-          const save = () => {
-            savePseudo(pseudoInput.value);
-            saveTourneyName(nameInput.value);
-            saveTourneyDate(dateInput.value);
-            closeModal();
-            showHistoryModal();
-          };
-          setupSharkscopeAutocomplete(pseudoInput, $('ss-suggest'));
-          $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
-          $('pseudo-save').addEventListener('click', save);
-          [pseudoInput, nameInput].forEach(inp => {
-            inp.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
-          });
-        }
-      });
-    });
+    $('hist-pseudo-edit').addEventListener('click', () => showSessionEditModal(showHistoryModal));
 
     const expBtn = $('hist-export');
     if (expBtn) expBtn.addEventListener('click', () => {
@@ -637,6 +588,70 @@ export function handleImportFile(file) {
     }
   };
   reader.readAsText(file);
+}
+
+/**
+ * Modale d'édition de la session : pseudo (+ autocomplete SharkScope),
+ * nom de tournoi et date. Réutilisée depuis l'historique et les tags du table-area.
+ * @param {Function} [onClose] callback après save/cancel
+ */
+export function showSessionEditModal(onClose) {
+  const curPseudo = loadPseudo();
+  const curName = loadTourneyName();
+  const curDate = loadTourneyDate();
+  showModal(`
+    <div class="modal-title">Session</div>
+    <div class="modal-subtitle">Pseudo, tournament and date associated with saved hands.</div>
+    <label class="history-field-label" for="pseudo-input">Pseudo</label>
+    <div class="pseudo-input-wrap">
+      <input class="stack-input" id="pseudo-input" type="text"
+        value="${curPseudo}" placeholder="e.g. John" maxlength="24"
+        autocomplete="off" autocorrect="off" spellcheck="false">
+      <div class="ss-suggest" id="ss-suggest" hidden></div>
+    </div>
+    <div class="tourney-row">
+      <div class="tourney-field tourney-field--name">
+        <label class="history-field-label" for="tourney-name-input">Tournament name</label>
+        <input class="stack-input" id="tourney-name-input" type="text"
+          value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="tourney-field tourney-field--date">
+        <label class="history-field-label" for="tourney-date-input">Date</label>
+        <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
+      <button class="btn btn-primary" id="pseudo-save">Save</button>
+    </div>`, { id: 'modal-pseudo',
+    onMount: () => {
+      const pseudoInput = $('pseudo-input');
+      const nameInput = $('tourney-name-input');
+      const dateInput = $('tourney-date-input');
+      pseudoInput.focus(); pseudoInput.select();
+      let pickedMeta = null;
+      const save = () => {
+        const val = pseudoInput.value.trim();
+        savePseudo(val);
+        if (pickedMeta && pickedMeta.name === val) {
+          savePseudoMeta({ network: pickedMeta.network, country: pickedMeta.country });
+        } else {
+          savePseudoMeta(null);
+        }
+        saveTourneyName(nameInput.value);
+        saveTourneyDate(dateInput.value);
+        closeModal();
+        if (onClose) onClose();
+      };
+      setupSharkscopeAutocomplete(pseudoInput, $('ss-suggest'), (p) => { pickedMeta = p; });
+      $('pseudo-cancel').addEventListener('click', () => { closeModal(); if (onClose) onClose(); });
+      $('pseudo-save').addEventListener('click', save);
+      [pseudoInput, nameInput].forEach(inp => {
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+      });
+    }
+  });
 }
 
 export function showTourneyPickerModal(field, onPick) {
@@ -811,7 +826,7 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
  * Réponse XML : <Response><SearchSuggestionsResponse><PlayerSuggestions>
  *   <Player name="..." network="..." country="..." countryName="..."/>...
  */
-function setupSharkscopeAutocomplete(input, dropdown) {
+function setupSharkscopeAutocomplete(input, dropdown, onPick) {
   // Proxies CORS testés (allorigins.win était en panne, corsproxy.io est passé en payant).
   // corsmirror.com fonctionne et a ACAO: *. Si plusieurs sont fournis, on essaie dans l'ordre.
   const PROXIES = [
@@ -848,6 +863,7 @@ function setupSharkscopeAutocomplete(input, dropdown) {
         e.preventDefault();
         const i = parseInt(el.dataset.i, 10);
         input.value = items[i].name;
+        if (onPick) onPick(items[i]);
         hide();
         input.focus();
       });
@@ -902,6 +918,7 @@ function setupSharkscopeAutocomplete(input, dropdown) {
     else if (e.key === 'Enter' && activeIdx >= 0) {
       e.preventDefault(); e.stopPropagation();
       input.value = items[activeIdx].name;
+      if (onPick) onPick(items[activeIdx]);
       hide();
     } else if (e.key === 'Escape') { hide(); }
   });

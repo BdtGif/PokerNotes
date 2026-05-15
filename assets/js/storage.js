@@ -5,11 +5,22 @@ import { showToast } from './utils.js';
 
 export const STORAGE_KEY = 'pokernotes_hands';
 export const PSEUDO_KEY   = 'pokernotes_pseudo';
+export const PSEUDO_META_KEY = 'pokernotes_pseudo_meta';
 export const TOURNEY_NAME_KEY = 'pokernotes_tourney_name';
 export const TOURNEY_DATE_KEY = 'pokernotes_tourney_date';
 
 export function loadPseudo() { return localStorage.getItem(PSEUDO_KEY) || ''; }
 export function savePseudo(pseudo) { localStorage.setItem(PSEUDO_KEY, pseudo.trim()); }
+
+/** @returns {{network?:string, country?:string, countryName?:string}} */
+export function loadPseudoMeta() {
+  try { return JSON.parse(localStorage.getItem(PSEUDO_META_KEY) || '{}'); }
+  catch (_) { return {}; }
+}
+export function savePseudoMeta(meta) {
+  if (!meta || !meta.network) { localStorage.removeItem(PSEUDO_META_KEY); return; }
+  localStorage.setItem(PSEUDO_META_KEY, JSON.stringify(meta));
+}
 
 export function loadTourneyName() { return localStorage.getItem(TOURNEY_NAME_KEY) || ''; }
 export function saveTourneyName(name) { localStorage.setItem(TOURNEY_NAME_KEY, (name || '').trim()); }
