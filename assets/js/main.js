@@ -26,21 +26,12 @@ $('pc-minus').addEventListener('click', () => {
 });
 
 /* ---------- Blinds ---------- */
-$('sb-input').addEventListener('input', (e) => {
-  state.sb = Math.max(0, parseInt(e.target.value) || 0);
-  state.sbManual = true;
-  if (state.step === 'setup') postBlindsForPreview();
-  render();
-});
 $('bb-input').addEventListener('input', (e) => {
   state.bb = Math.max(1, parseInt(e.target.value) || 1);
-  if (!state.sbManual) {
-    state.sb = Math.floor(state.bb / 2);
-  }
+  state.sb = Math.floor(state.bb / 2);
   if (state.step === 'setup') postBlindsForPreview();
   render();
 });
-bindEnterToValidate('sb-input', null);
 bindEnterToValidate('bb-input', null);
 
 /* ---------- Ante ---------- */
@@ -152,7 +143,7 @@ window.addEventListener('resize', () => {
   const ae = document.activeElement;
   const typing = ae && ae.tagName === 'INPUT' &&
     (ae.id === 'rm-input' || ae.id === 'ap-allin-input' ||
-     ae.id === 'sb-input' || ae.id === 'bb-input' || ae.id === 'ante-input');
+     ae.id === 'bb-input' || ae.id === 'ante-input');
   const heightDelta = Math.abs(window.innerHeight - _lastVPHeight);
   _lastVPHeight = window.innerHeight;
   if (typing) return;

@@ -8,6 +8,7 @@
   transition: border-color 0.15s;
 }
 .blind-input:focus, .ante-input:focus { outline: none; border-color: var(--gold); }
+#sb-input { pointer-events: none; opacity: 0.6; }
 .slash { color: var(--gold); font-weight: 700; font-size: 12px; }
 
 /* Masquer les flèches spinner */
