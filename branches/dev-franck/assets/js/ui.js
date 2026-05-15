@@ -5,9 +5,9 @@
  */
 
 import { state, SUITS, RANKS } from './state.js';
-import { $, fmtChips, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
+import { $, fmtChips, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte, countryCodeToFlag, networkShortLabel } from './utils.js';
 import { postBlindsForPreview } from './player.js';
-import { loadPseudo, loadTourneyName, loadTourneyDate } from './storage.js';
+import { loadPseudo, loadPseudoMeta, loadTourneyName, loadTourneyDate } from './storage.js';
 // Imports circulaires — safe à runtime (voir note ci-dessus)
 import { doAction, goBackOneAction, buildActionQueue, finishHand } from './hand.js';
 
@@ -357,6 +357,7 @@ function _formatTourneyDateShort(iso) {
 function renderTableTags() {
   const tableArea = $('table-area');
   if (!tableArea) return;
+  // Overlay droit : tournoi + date
   let overlay = document.getElementById('table-tags-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -367,7 +368,6 @@ function renderTableTags() {
       const target = e.target.closest('[data-pick]');
       if (!target) return;
       const field = target.dataset.pick;
-      // Import dynamique pour éviter le cycle au chargement
       import('./history.js').then(m => m.showTourneyPickerModal(field, render));
     });
   }
@@ -378,6 +378,37 @@ function renderTableTags() {
   if (date) parts.push(`<span class="history-date-tag is-clickable" data-pick="date" title="Change date">${_formatTourneyDateShort(date)}</span>`);
   overlay.innerHTML = parts.join('');
   overlay.style.display = parts.length ? 'flex' : 'none';
+
+  // Overlay gauche : pseudo (+ drapeau) + réseau
+  let leftOverlay = document.getElementById('table-tags-overlay-left');
+  if (!leftOverlay) {
+    leftOverlay = document.createElement('div');
+    leftOverlay.id = 'table-tags-overlay-left';
+    leftOverlay.className = 'table-tags table-tags--left';
+    tableArea.appendChild(leftOverlay);
+    leftOverlay.addEventListener('click', e => {
+      if (!e.target.closest('[data-pick]')) return;
+      import('./history.js').then(m => m.showSessionEditModal(render));
+    });
+  }
+  const pseudo = loadPseudo();
+  const meta = loadPseudoMeta();
+  const leftParts = [];
+  if (pseudo) {
+    const flag = meta.country ? `<span class="tag-flag">${countryCodeToFlag(meta.country)}</span>` : '';
+    leftParts.push(`<span class="history-pseudo-tag is-clickable" data-pick="pseudo" title="Change pseudo">${flag}${pseudo}</span>`);
+  }
+  const networks = (meta.networks || []).filter(n => n && n.network);
+  for (const net of networks) {
+    const slug = _networkSlug(net.network);
+    leftParts.push(`<span class="network-tag network-tag--${slug}" title="${net.network}">${networkShortLabel(net.network)}</span>`);
+  }
+  leftOverlay.innerHTML = leftParts.join('');
+  leftOverlay.style.display = leftParts.length ? 'flex' : 'none';
+}
+
+function _networkSlug(network) {
+  return networkShortLabel(network).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'generic';
 }
 
 export function render() {
