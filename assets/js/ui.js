@@ -540,6 +540,58 @@ export function openRaiseModal(player, idx) {
   });
 }
 
+export function openBBModal() {
+  const initBB = state.bb;
+  const presets = [25, 50, 100, 200, 500, 1000];
+
+  const html = `
+    <div class="modal-title">Big Blind</div>
+    <div class="gauge-presets">
+      ${presets.map(p => `<button class="gauge-preset-btn${p === initBB ? ' active' : ''}" data-bb="${p}">${p}</button>`).join('')}
+    </div>
+    <div class="stack-input-wrap" style="margin:4px 0;">
+      <input type="number" inputmode="numeric" class="stack-input" id="bbm-input" value="${initBB}" min="1" placeholder="BB" autofocus>
+    </div>
+    <div class="raise-error" id="bbm-error" style="display:none;margin-top:6px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="bbm-cancel">Cancel</button>
+      <button class="btn btn-primary" id="bbm-ok">OK</button>
+    </div>`;
+
+  showModal(html, { id: 'modal-bb',
+    onMount: () => {
+      const errEl = $('bbm-error');
+      const input = $('bbm-input');
+
+      document.querySelectorAll('#modal-bb .gauge-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          input.value = parseInt(btn.dataset.bb);
+          document.querySelectorAll('#modal-bb .gauge-preset-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          errEl.style.display = 'none';
+        });
+      });
+
+      input.addEventListener('input', () => {
+        errEl.style.display = 'none';
+        document.querySelectorAll('#modal-bb .gauge-preset-btn').forEach(b => b.classList.remove('active'));
+      });
+
+      $('bbm-cancel').addEventListener('click', closeModal);
+      $('bbm-ok').addEventListener('click', () => {
+        const v = parseInt(input.value);
+        if (!v || v < 1) { errEl.textContent = 'BB must be ≥ 1'; errEl.style.display = 'block'; return; }
+        state.bb = v;
+        state.sb = Math.floor(v / 2);
+        if (state.step === 'setup') postBlindsForPreview();
+        closeModal();
+        render();
+      });
+      bindEnterToValidate('bbm-input', 'bbm-ok');
+    }
+  });
+}
+
 /* ================================================================
    INTERACTIONS SIÈGES
    ================================================================ */
