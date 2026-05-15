@@ -380,7 +380,6 @@ export function showHistoryModal(filters = {}) {
         <button class="history-unit-btn chips-btn active" data-unit="chips">Tks</button>
         <button class="history-unit-btn bb-btn" data-unit="bb">BB</button>
       </div>
-      <button class="history-delete-btn" data-id="${hand.id}">✕</button>
     </div>
   </div>
   <div class="history-summary">${summary}</div>
@@ -717,10 +716,10 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
     ? `
       <div class="modal-title">Sauvegarder la main</div>
       <div class="modal-subtitle">Pseudo, tournoi et date associés à la main :</div>
-      <div class="history-tags history-tags--center">
+      <div class="history-tags">
         <span class="history-pseudo-tag">${curPseudo}</span>
-        <span class="history-tourney-tag">${curName}</span>
-        <span class="history-date-tag">${_formatTourneyDate(curDate)}</span>
+        <span>Tournois : <span class="history-tourney-tag">${curName}</span></span>
+        <span>Date : <span class="history-date-tag">${_formatTourneyDate(curDate)}</span></span>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
