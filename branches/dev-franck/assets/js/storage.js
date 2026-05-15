@@ -5,9 +5,17 @@ import { showToast } from './utils.js';
 
 export const STORAGE_KEY = 'pokernotes_hands';
 export const PSEUDO_KEY   = 'pokernotes_pseudo';
+export const TOURNEY_NAME_KEY = 'pokernotes_tourney_name';
+export const TOURNEY_DATE_KEY = 'pokernotes_tourney_date';
 
 export function loadPseudo() { return localStorage.getItem(PSEUDO_KEY) || ''; }
 export function savePseudo(pseudo) { localStorage.setItem(PSEUDO_KEY, pseudo.trim()); }
+
+export function loadTourneyName() { return localStorage.getItem(TOURNEY_NAME_KEY) || ''; }
+export function saveTourneyName(name) { localStorage.setItem(TOURNEY_NAME_KEY, (name || '').trim()); }
+
+export function loadTourneyDate() { return localStorage.getItem(TOURNEY_DATE_KEY) || ''; }
+export function saveTourneyDate(date) { localStorage.setItem(TOURNEY_DATE_KEY, (date || '').trim()); }
 
 /** @returns {string} Identifiant unique pour une main */
 export function generateId() {
@@ -49,6 +57,9 @@ export function deleteHand(id) {
 export function buildHandRecord() {
   return {
     id: generateId(),
+    pseudo: loadPseudo(),
+    tourneyName: loadTourneyName(),
+    tourneyDate: loadTourneyDate(),
     heroIdx: state.heroIdx,
     date: new Date().toISOString(),
     sb: state.sb, bb: state.bb,
