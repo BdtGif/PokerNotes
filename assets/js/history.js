@@ -465,9 +465,15 @@ export function showHistoryModal(filters = {}) {
         <div class="modal-title">Session</div>
         <div class="modal-subtitle">Pseudo, tournament and date associated with saved hands.</div>
         <label class="history-field-label" for="pseudo-input">Pseudo</label>
-        <input class="stack-input" id="pseudo-input" type="text"
-          value="${curPseudo}" placeholder="e.g. John" maxlength="24"
-          autocomplete="off" autocorrect="off" spellcheck="false">
+        <div class="pseudo-row">
+          <input class="stack-input" id="pseudo-input" type="text"
+            value="${curPseudo}" placeholder="e.g. John" maxlength="24"
+            autocomplete="off" autocorrect="off" spellcheck="false">
+          <button type="button" class="btn-sharkscope" id="sharkscope-btn"
+            title="Voir les statistiques sur SharkScope"${curPseudo ? '' : ' disabled'}>
+            🦈 SharkScope
+          </button>
+        </div>
         <label class="history-field-label" for="tourney-name-input">Tournament name</label>
         <input class="stack-input" id="tourney-name-input" type="text"
           value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
@@ -482,6 +488,7 @@ export function showHistoryModal(filters = {}) {
           const pseudoInput = $('pseudo-input');
           const nameInput = $('tourney-name-input');
           const dateInput = $('tourney-date-input');
+          const sharkBtn = $('sharkscope-btn');
           pseudoInput.focus(); pseudoInput.select();
           const save = () => {
             savePseudo(pseudoInput.value);
@@ -490,6 +497,16 @@ export function showHistoryModal(filters = {}) {
             closeModal();
             showHistoryModal();
           };
+          pseudoInput.addEventListener('input', () => {
+            sharkBtn.disabled = !pseudoInput.value.trim();
+          });
+          sharkBtn.addEventListener('click', () => {
+            const p = pseudoInput.value.trim();
+            if (!p) return;
+            savePseudo(p);
+            const url = `https://fr.sharkscope.com/#Player-Statistics//networks/*/players/${encodeURIComponent(p)}`;
+            window.open(url, '_blank', 'noopener,noreferrer');
+          });
           $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
           $('pseudo-save').addEventListener('click', save);
           [pseudoInput, nameInput].forEach(inp => {
