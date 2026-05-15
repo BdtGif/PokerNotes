@@ -267,7 +267,7 @@ display: flex; align-items: center; gap: 6px;justify-content: space-between;
 }
 .history-tags {
   display: flex; align-items: center; gap: 4px;
-  flex-wrap: wrap; justify-content: flex-end;
+  flex-wrap: wrap; justify-content: space-around;
 }
 .history-pseudo-tag,
 .history-tourney-tag,
