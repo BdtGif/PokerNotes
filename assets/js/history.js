@@ -465,15 +465,30 @@ export function showHistoryModal(filters = {}) {
         <div class="modal-title">Session</div>
         <div class="modal-subtitle">Pseudo, tournament and date associated with saved hands.</div>
         <label class="history-field-label" for="pseudo-input">Pseudo</label>
-        <input class="stack-input" id="pseudo-input" type="text"
-          value="${curPseudo}" placeholder="e.g. John" maxlength="24"
-          autocomplete="off" autocorrect="off" spellcheck="false">
-        <label class="history-field-label" for="tourney-name-input">Tournament name</label>
-        <input class="stack-input" id="tourney-name-input" type="text"
-          value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
-          autocomplete="off" autocorrect="off" spellcheck="false">
-        <label class="history-field-label" for="tourney-date-input">Tournament date</label>
-        <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
+        <div class="pseudo-row">
+          <div class="pseudo-input-wrap">
+            <input class="stack-input" id="pseudo-input" type="text"
+              value="${curPseudo}" placeholder="e.g. John" maxlength="24"
+              autocomplete="off" autocorrect="off" spellcheck="false">
+            <div class="ss-suggest" id="ss-suggest" hidden></div>
+          </div>
+          <button type="button" class="btn-sharkscope" id="sharkscope-btn"
+            title="Voir les statistiques sur SharkScope"${curPseudo ? '' : ' disabled'}>
+            SharkScope
+          </button>
+        </div>
+        <div class="tourney-row">
+          <div class="tourney-field tourney-field--name">
+            <label class="history-field-label" for="tourney-name-input">Tournament name</label>
+            <input class="stack-input" id="tourney-name-input" type="text"
+              value="${curName}" placeholder="e.g. WSOP Main Event" maxlength="48"
+              autocomplete="off" autocorrect="off" spellcheck="false">
+          </div>
+          <div class="tourney-field tourney-field--date">
+            <label class="history-field-label" for="tourney-date-input">Date</label>
+            <input class="stack-input" id="tourney-date-input" type="date" value="${curDate}">
+          </div>
+        </div>
         <div class="modal-actions">
           <button class="btn btn-secondary" id="pseudo-cancel">Cancel</button>
           <button class="btn btn-primary" id="pseudo-save">Save</button>
@@ -482,6 +497,7 @@ export function showHistoryModal(filters = {}) {
           const pseudoInput = $('pseudo-input');
           const nameInput = $('tourney-name-input');
           const dateInput = $('tourney-date-input');
+          const sharkBtn = $('sharkscope-btn');
           pseudoInput.focus(); pseudoInput.select();
           const save = () => {
             savePseudo(pseudoInput.value);
@@ -490,6 +506,14 @@ export function showHistoryModal(filters = {}) {
             closeModal();
             showHistoryModal();
           };
+          sharkBtn.addEventListener('click', () => {
+            const p = pseudoInput.value.trim();
+            if (!p) return;
+            savePseudo(p);
+            const url = `https://fr.sharkscope.com/#Player-Statistics/networks/*/players/${encodeURIComponent(p)}`;
+            window.open(url, '_blank', 'noopener,noreferrer');
+          });
+          setupSharkscopeAutocomplete(pseudoInput, $('ss-suggest'), sharkBtn);
           $('pseudo-cancel').addEventListener('click', () => { closeModal(); showHistoryModal(); });
           $('pseudo-save').addEventListener('click', save);
           [pseudoInput, nameInput].forEach(inp => {
@@ -793,4 +817,118 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
       });
     }
   });
+}
+
+/**
+ * Autocomplete pseudo via SharkScope suggestions endpoint (proxifié CORS).
+ * Endpoint réel : /poker-statistics/networks/* /players/<term>/suggestions?limit=25
+ * Réponse XML : <Response><SearchSuggestionsResponse><PlayerSuggestions>
+ *   <Player name="..." network="..." country="..." countryName="..."/>...
+ */
+function setupSharkscopeAutocomplete(input, dropdown, sharkBtn) {
+  // Proxies CORS testés (allorigins.win était en panne, corsproxy.io est passé en payant).
+  // corsmirror.com fonctionne et a ACAO: *. Si plusieurs sont fournis, on essaie dans l'ordre.
+  const PROXIES = [
+    'https://corsmirror.com/v1?url=',
+    'https://api.allorigins.win/raw?url='
+  ];
+  const MIN_LEN = 3;
+  const DEBOUNCE = 300;
+  let timer = null;
+  let controller = null;
+  let activeIdx = -1;
+  let items = [];
+
+  const syncBtn = () => { sharkBtn.disabled = !input.value.trim(); };
+  syncBtn();
+
+  const hide = () => {
+    dropdown.hidden = true;
+    dropdown.innerHTML = '';
+    activeIdx = -1;
+    items = [];
+  };
+
+  const render = (players) => {
+    items = players;
+    if (!players.length) { hide(); return; }
+    dropdown.innerHTML = players.map((p, i) => `
+      <div class="ss-suggest-item" data-i="${i}">
+        <span class="ss-suggest-name">${escapeHtml(p.name)}</span>
+        <span class="ss-suggest-net">${escapeHtml(p.network || '')}${p.country ? ' · ' + escapeHtml(p.country) : ''}</span>
+      </div>
+    `).join('');
+    dropdown.hidden = false;
+    activeIdx = -1;
+    dropdown.querySelectorAll('.ss-suggest-item').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const i = parseInt(el.dataset.i, 10);
+        input.value = items[i].name;
+        syncBtn();
+        hide();
+        input.focus();
+      });
+    });
+  };
+
+  const setActive = (i) => {
+    const els = dropdown.querySelectorAll('.ss-suggest-item');
+    els.forEach(el => el.classList.remove('ss-suggest-active'));
+    if (i >= 0 && i < els.length) {
+      els[i].classList.add('ss-suggest-active');
+      activeIdx = i;
+    }
+  };
+
+  const fetchSuggestions = async (term) => {
+    if (controller) controller.abort();
+    controller = new AbortController();
+    const ssUrl = `https://fr.sharkscope.com/poker-statistics/networks/*/players/${encodeURIComponent(term)}/suggestions?limit=15`;
+    for (const proxy of PROXIES) {
+      try {
+        const resp = await fetch(proxy + encodeURIComponent(ssUrl), { signal: controller.signal });
+        if (!resp.ok) continue;
+        const text = await resp.text();
+        const doc = new DOMParser().parseFromString(text, 'text/xml');
+        if (doc.querySelector('parsererror')) continue;
+        const players = Array.from(doc.querySelectorAll('PlayerSuggestions > Player')).map(el => ({
+          name: el.getAttribute('name'),
+          network: el.getAttribute('network'),
+          country: el.getAttribute('country')
+        })).filter(p => p.name);
+        if (input.value.trim() === term) render(players);
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    hide();
+  };
+
+  input.addEventListener('input', () => {
+    syncBtn();
+    const term = input.value.trim();
+    clearTimeout(timer);
+    if (term.length < MIN_LEN) { hide(); return; }
+    timer = setTimeout(() => fetchSuggestions(term), DEBOUNCE);
+  });
+
+  input.addEventListener('keydown', e => {
+    if (dropdown.hidden || !items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((activeIdx + 1) % items.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((activeIdx - 1 + items.length) % items.length); }
+    else if (e.key === 'Enter' && activeIdx >= 0) {
+      e.preventDefault(); e.stopPropagation();
+      input.value = items[activeIdx].name;
+      syncBtn();
+      hide();
+    } else if (e.key === 'Escape') { hide(); }
+  });
+
+  input.addEventListener('blur', () => setTimeout(hide, 150));
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
