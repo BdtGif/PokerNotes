@@ -5,11 +5,33 @@ import { showToast } from './utils.js';
 
 export const STORAGE_KEY = 'pokernotes_hands';
 export const PSEUDO_KEY   = 'pokernotes_pseudo';
+export const PSEUDO_META_KEY = 'pokernotes_pseudo_meta';
 export const TOURNEY_NAME_KEY = 'pokernotes_tourney_name';
 export const TOURNEY_DATE_KEY = 'pokernotes_tourney_date';
 
 export function loadPseudo() { return localStorage.getItem(PSEUDO_KEY) || ''; }
 export function savePseudo(pseudo) { localStorage.setItem(PSEUDO_KEY, pseudo.trim()); }
+
+/**
+ * @returns {{country?:string, networks?: Array<{network:string, country?:string}>}}
+ */
+export function loadPseudoMeta() {
+  try {
+    const m = JSON.parse(localStorage.getItem(PSEUDO_META_KEY) || '{}');
+    // Migration depuis l'ancien format {network, country}
+    if (m && m.network && !m.networks) {
+      return { country: m.country, networks: [{ network: m.network, country: m.country }] };
+    }
+    return m || {};
+  } catch (_) { return {}; }
+}
+export function savePseudoMeta(meta) {
+  if (!meta || !meta.networks || !meta.networks.length) {
+    localStorage.removeItem(PSEUDO_META_KEY);
+    return;
+  }
+  localStorage.setItem(PSEUDO_META_KEY, JSON.stringify(meta));
+}
 
 export function loadTourneyName() { return localStorage.getItem(TOURNEY_NAME_KEY) || ''; }
 export function saveTourneyName(name) { localStorage.setItem(TOURNEY_NAME_KEY, (name || '').trim()); }
