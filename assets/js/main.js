@@ -4,7 +4,7 @@ import { state } from './state.js';
 import { $ } from './utils.js';
 import { rebuildPlayers, postBlindsForPreview } from './player.js';
 import { startPreflop, goBackOneAction, handleGlobalBack } from './hand.js';
-import { render, showModal, closeModal, bindEnterToValidate } from './ui.js';
+import { render, showModal, closeModal, bindEnterToValidate, openBBModal } from './ui.js';
 import { showHistoryModal } from './history.js';
 
 /* ---------- Player count ---------- */
@@ -26,13 +26,7 @@ $('pc-minus').addEventListener('click', () => {
 });
 
 /* ---------- Blinds ---------- */
-$('bb-input').addEventListener('input', (e) => {
-  state.bb = Math.max(1, parseInt(e.target.value) || 1);
-  state.sb = Math.floor(state.bb / 2);
-  if (state.step === 'setup') postBlindsForPreview();
-  render();
-});
-bindEnterToValidate('bb-input', null);
+$('bb-input').addEventListener('click', () => openBBModal());
 
 /* ---------- Ante ---------- */
 $('ante-toggle').addEventListener('click', () => {
@@ -143,7 +137,7 @@ window.addEventListener('resize', () => {
   const ae = document.activeElement;
   const typing = ae && ae.tagName === 'INPUT' &&
     (ae.id === 'rm-input' || ae.id === 'ap-allin-input' ||
-     ae.id === 'bb-input' || ae.id === 'ante-input');
+     ae.id === 'ante-input');
   const heightDelta = Math.abs(window.innerHeight - _lastVPHeight);
   _lastVPHeight = window.innerHeight;
   if (typing) return;
