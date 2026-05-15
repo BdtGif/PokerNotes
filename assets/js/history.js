@@ -631,15 +631,18 @@ export function handleImportFile(file) {
 }
 
 export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
+  const curPseudo = loadPseudo();
   const curName = loadTourneyName();
   const curDate = loadTourneyDate();
-  const editing = opts.forceEdit || !curName || !curDate;
+  const allSet = !!curPseudo && !!curName && !!curDate;
+  const editing = opts.forceEdit || !allSet;
 
   const body = !editing
     ? `
       <div class="modal-title">Sauvegarder la main</div>
-      <div class="modal-subtitle">Tournoi et date associés à la main :</div>
+      <div class="modal-subtitle">Pseudo, tournoi et date associés à la main :</div>
       <div class="history-tags history-tags--center">
+        <span class="history-pseudo-tag">${curPseudo}</span>
         <span class="history-tourney-tag">${curName}</span>
         <span class="history-date-tag">${_formatTourneyDate(curDate)}</span>
       </div>
@@ -650,7 +653,11 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
       </div>`
     : `
       <div class="modal-title">Sauvegarder la main</div>
-      <div class="modal-subtitle">Confirme le tournoi et la date associés.</div>
+      <div class="modal-subtitle">Pseudo, tournoi et date sont obligatoires pour sauvegarder.</div>
+      <label class="history-field-label" for="confirm-pseudo">Pseudo</label>
+      <input class="stack-input" id="confirm-pseudo" type="text"
+        value="${curPseudo}" placeholder="Ex : John" maxlength="24"
+        autocomplete="off" autocorrect="off" spellcheck="false">
       <div class="confirm-row">
         <div class="confirm-field">
           <label class="history-field-label" for="confirm-tourney-name">Nom du tournoi</label>
@@ -671,12 +678,28 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
   showModal(body, {
     id: 'modal-confirm-save',
     onMount: () => {
+      const pseudoInput = $('confirm-pseudo');
       const nameInput = $('confirm-tourney-name');
       const dateInput = $('confirm-tourney-date');
-      if (nameInput) { nameInput.focus(); nameInput.select(); }
+      const focusTarget = pseudoInput && !pseudoInput.value ? pseudoInput
+        : nameInput && !nameInput.value ? nameInput
+        : pseudoInput || nameInput;
+      if (focusTarget) { focusTarget.focus(); focusTarget.select?.(); }
       const commit = () => {
-        if (nameInput) saveTourneyName(nameInput.value);
-        if (dateInput) saveTourneyDate(dateInput.value);
+        if (pseudoInput && nameInput && dateInput) {
+          const pVal = pseudoInput.value.trim();
+          const nVal = nameInput.value.trim();
+          const dVal = dateInput.value.trim();
+          if (!pVal || !nVal || !dVal) {
+            showToast('Pseudo, tournoi et date sont obligatoires', 2500);
+            const missing = !pVal ? pseudoInput : !nVal ? nameInput : dateInput;
+            missing.focus();
+            return;
+          }
+          savePseudo(pVal);
+          saveTourneyName(nVal);
+          saveTourneyDate(dVal);
+        }
         closeModal();
         if (onConfirm) onConfirm();
       };
@@ -690,7 +713,7 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
         closeModal();
         showTourneyConfirmModal(onConfirm, onCancel, { forceEdit: true });
       });
-      [nameInput, dateInput].forEach(inp => {
+      [pseudoInput, nameInput, dateInput].forEach(inp => {
         if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); });
       });
     }
