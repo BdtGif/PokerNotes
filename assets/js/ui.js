@@ -7,7 +7,7 @@
 import { state, SUITS, RANKS } from './state.js';
 import { $, fmtChips, fmtStack, fmtAmount, cardLabel, cardInnerHtml, isCardUsed, getActivePlayers, getEffectiveAnte } from './utils.js';
 import { postBlindsForPreview } from './player.js';
-import { loadPseudo } from './storage.js';
+import { loadPseudo, loadTourneyName, loadTourneyDate } from './storage.js';
 // Imports circulaires — safe à runtime (voir note ci-dessus)
 import { doAction, goBackOneAction, buildActionQueue, finishHand } from './hand.js';
 
@@ -348,9 +348,35 @@ buttonsHtml += `<button class="action-btn-inline action-raise" id="ap-raise"><di
 }
 
 /** Point d'entrée du rendu : met à jour tout le DOM. */
+function _formatTourneyDateShort(iso) {
+  if (!iso) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+function renderTableTags() {
+  const tableArea = $('table-area');
+  if (!tableArea) return;
+  let overlay = document.getElementById('table-tags-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'table-tags-overlay';
+    overlay.className = 'table-tags';
+    tableArea.appendChild(overlay);
+  }
+  const name = loadTourneyName();
+  const date = loadTourneyDate();
+  const parts = [];
+  if (name) parts.push(`<span class="history-tourney-tag">${name}</span>`);
+  if (date) parts.push(`<span class="history-date-tag">${_formatTourneyDateShort(date)}</span>`);
+  overlay.innerHTML = parts.join('');
+  overlay.style.display = parts.length ? 'flex' : 'none';
+}
+
 export function render() {
   renderSeats(); renderBoard(); renderPot();
   renderStepIndicator(); renderBottomBar(); renderActionPanel();
+  renderTableTags();
 }
 
 /* ================================================================

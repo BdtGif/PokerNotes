@@ -39,6 +39,14 @@
   text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--gold); margin: 10px 0 4px;
 }
+.confirm-row {
+  display: flex; gap: 10px; margin-bottom: 6px;
+}
+.confirm-field { flex: 1; min-width: 0; }
+.confirm-field .stack-input { width: 100%; box-sizing: border-box; }
+.history-tags--center {
+  justify-content: center; margin: 14px 0 6px;
+}
 
 /* ---------- TOOLBAR (export / import) ---------- */
 .hist-btn--blocked { opacity: 0.4; cursor: not-allowed; }
@@ -216,7 +224,8 @@ display: flex; align-items: center; gap: 6px;justify-content: space-between;
   flex-wrap: wrap; justify-content: flex-end;
 }
 .history-pseudo-tag,
-.history-tourney-tag {
+.history-tourney-tag,
+.history-date-tag {
   display: inline-flex; align-items: center;
   font-size: 11px; font-weight: 700;
   border-radius: 6px;
@@ -234,6 +243,12 @@ display: flex; align-items: center; gap: 6px;justify-content: space-between;
   color: var(--cream);
   background: rgba(232,212,184,0.08);
   border: 1px solid rgba(232,212,184,0.25);
+}
+.history-date-tag {
+  color: rgba(232,212,184,0.75);
+  background: rgba(232,212,184,0.04);
+  border: 1px solid rgba(232,212,184,0.18);
+  font-weight: 600;
 }
 /* ---------- MODALE ANALYSE — PAS DE SCROLLBAR ---------- */
 #modal-analysis { scrollbar-width: none; }

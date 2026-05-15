@@ -359,7 +359,6 @@ export function showHistoryModal() {
         return `<div class="history-item ${outcomeClass}">
   <div class="history-item-header">
     <div class="history-meta">
-      <span class="history-date">${dateStr} ${timeStr}</span>
       <span class="history-blinds">${hand.sb}/${hand.bb}${anteTag} · ${inHandCount} Players</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -377,8 +376,9 @@ export function showHistoryModal() {
   <div id="solver-button">
     ${cardsRow}
     <div class="history-tags">
-      ${(hand.pseudo || pseudo) ? `<span class="history-pseudo-tag">${hand.pseudo || pseudo}</span>` : ''}
-      ${(hand.tourneyName || tourneyName) ? `<span class="history-tourney-tag" title="${(hand.tourneyDate || tourneyDate) ? _formatTourneyDate(hand.tourneyDate || tourneyDate) : ''}">${hand.tourneyName || tourneyName}</span>` : ''}
+      ${hand.pseudo ? `<span class="history-pseudo-tag">${hand.pseudo}</span>` : ''}
+      ${hand.tourneyName ? `<span class="history-tourney-tag">${hand.tourneyName}</span>` : ''}
+      ${hand.tourneyDate ? `<span class="history-date-tag">${_formatTourneyDate(hand.tourneyDate)}</span>` : ''}
     </div>
   </div>
 </div>`;
@@ -588,4 +588,71 @@ export function handleImportFile(file) {
     }
   };
   reader.readAsText(file);
+}
+
+export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
+  const curName = loadTourneyName();
+  const curDate = loadTourneyDate();
+  const editing = opts.forceEdit || !curName || !curDate;
+
+  const body = !editing
+    ? `
+      <div class="modal-title">Sauvegarder la main</div>
+      <div class="modal-subtitle">Tournoi et date associés à la main :</div>
+      <div class="history-tags history-tags--center">
+        <span class="history-tourney-tag">${curName}</span>
+        <span class="history-date-tag">${_formatTourneyDate(curDate)}</span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
+        <button class="btn btn-secondary" id="confirm-edit">Éditer</button>
+        <button class="btn btn-primary" id="confirm-save">OK</button>
+      </div>`
+    : `
+      <div class="modal-title">Sauvegarder la main</div>
+      <div class="modal-subtitle">Confirme le tournoi et la date associés.</div>
+      <div class="confirm-row">
+        <div class="confirm-field">
+          <label class="history-field-label" for="confirm-tourney-name">Nom du tournoi</label>
+          <input class="stack-input" id="confirm-tourney-name" type="text"
+            value="${curName}" placeholder="Ex : WSOP Main Event" maxlength="48"
+            autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div class="confirm-field">
+          <label class="history-field-label" for="confirm-tourney-date">Date du tournoi</label>
+          <input class="stack-input" id="confirm-tourney-date" type="date" value="${curDate}">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="confirm-cancel">Annuler</button>
+        <button class="btn btn-primary" id="confirm-save">Sauvegarder</button>
+      </div>`;
+
+  showModal(body, {
+    id: 'modal-confirm-save',
+    onMount: () => {
+      const nameInput = $('confirm-tourney-name');
+      const dateInput = $('confirm-tourney-date');
+      if (nameInput) { nameInput.focus(); nameInput.select(); }
+      const commit = () => {
+        if (nameInput) saveTourneyName(nameInput.value);
+        if (dateInput) saveTourneyDate(dateInput.value);
+        closeModal();
+        if (onConfirm) onConfirm();
+      };
+      $('confirm-cancel').addEventListener('click', () => {
+        closeModal();
+        if (onCancel) onCancel();
+      });
+      $('confirm-save').addEventListener('click', commit);
+      const editBtn = $('confirm-edit');
+      if (editBtn) editBtn.addEventListener('click', () => {
+        closeModal();
+        showTourneyConfirmModal(onConfirm, onCancel, { forceEdit: true });
+      });
+      [nameInput, dateInput].forEach(inp => {
+        if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); });
+      });
+    }
+  });
 }
