@@ -124,6 +124,10 @@
   flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; gap: 4px;
 }
+.tourney-pick-input-block > .history-field-label,
+.tourney-pick-select-block > .history-field-label {
+  margin: 0; display: block;
+}
 .tourney-pick-select-block .tourney-pick-list {
   margin: 0;
   flex: 1 1 auto;
