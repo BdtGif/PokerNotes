@@ -771,9 +771,12 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
       <div class="modal-title">Save hand</div>
       <div class="modal-subtitle">Pseudo, tournament and date are required to save.</div>
       <label class="history-field-label" for="confirm-pseudo">Pseudo</label>
-      <input class="stack-input" id="confirm-pseudo" type="text"
-        value="${curPseudo}" placeholder="e.g. John" maxlength="24"
-        autocomplete="off" autocorrect="off" spellcheck="false">
+      <div class="pseudo-input-wrap">
+        <input class="stack-input" id="confirm-pseudo" type="text"
+          value="${curPseudo}" placeholder="e.g. John" maxlength="24"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+        <div class="ss-suggest" id="confirm-ss-suggest" hidden></div>
+      </div>
       <div class="confirm-row">
         <div class="confirm-field">
           <label class="history-field-label" for="confirm-tourney-name">Tournament name</label>
@@ -801,6 +804,7 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
         : nameInput && !nameInput.value ? nameInput
         : pseudoInput || nameInput;
       if (focusTarget) { focusTarget.focus(); focusTarget.select?.(); }
+      const ac = pseudoInput ? setupSharkscopeAutocomplete(pseudoInput, $('confirm-ss-suggest')) : null;
       const commit = () => {
         if (pseudoInput && nameInput && dateInput) {
           const pVal = pseudoInput.value.trim();
@@ -813,6 +817,18 @@ export function showTourneyConfirmModal(onConfirm, onCancel, opts = {}) {
             return;
           }
           savePseudo(pVal);
+          if (ac) {
+            const matches = ac.getMatchesFor(pVal);
+            if (matches.length) {
+              const country = (matches.find(m => m.country) || matches[0]).country;
+              savePseudoMeta({
+                country,
+                networks: matches.map(m => ({ network: m.network, country: m.country }))
+              });
+            } else {
+              savePseudoMeta(null);
+            }
+          }
           saveTourneyName(nVal);
           saveTourneyDate(dVal);
         }
