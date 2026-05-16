@@ -470,10 +470,10 @@ export function openRaiseModal(player, idx) {
     <div class="gauge-presets">
       ${(state.betRound?.lastRaiserIdx != null)
         ? (() => {
-            const x1 = Math.round(state.currentBet);
+            const xmin = Math.round(minRaise);
             const x2 = Math.round(state.currentBet * 2);
             const x3 = Math.round(state.currentBet * 3);
-            return `<button class="gauge-preset-btn" data-chips="${x1}"${x1 >= minRaise ? '' : ' disabled'}>1X</button>
+            return `<button class="gauge-preset-btn" data-chips="${xmin}">Min</button>
                     <button class="gauge-preset-btn" data-chips="${x2}"${x2 >= minRaise ? '' : ' disabled'}>2X</button>
                     <button class="gauge-preset-btn" data-chips="${x3}"${x3 >= minRaise ? '' : ' disabled'}>3X</button>`;
           })()
