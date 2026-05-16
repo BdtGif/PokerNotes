@@ -43,10 +43,25 @@
 .modal-title-row .modal-subtitle { margin-bottom: 0; }
 .modal-pot-tag {
   display: inline-flex; align-items: center;
-  font-size: 11px; font-weight: 700;
+  font-size: initial; font-weight: 700;
   color: var(--gold);
   background: var(--gold-bg);
   border: 1px solid var(--gold-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.modal-tags {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.modal-raise-tag {
+  display: inline-flex; align-items: center;
+  font-size: initial; font-weight: 700;
+  color: #ffcc80;
+  background: rgba(230,81,0,0.15);
+  border: 1px solid rgba(230,81,0,0.4);
   border-radius: 6px;
   padding: 3px 8px;
   letter-spacing: 0.04em;
