@@ -456,16 +456,41 @@ export function openRaiseModal(player, idx) {
 
   const html = `
     <div class="modal-title-row">
-      <span class="modal-pot-tag" id="rm-pot">Pot ${fmtAmount(state.pot)}</span>
+      <div class="modal-tags">
+        <span class="modal-pot-tag" id="rm-pot">Pot ${fmtAmount(state.pot)}</span>
+        ${(state.betRound?.lastRaiserIdx != null && state.currentBet > 0)
+          ? `<span class="modal-raise-tag" id="rm-prev-raise">Raise joueur précédent ${fmtAmount(state.currentBet)}</span>`
+          : ''}
+      </div>
       <div class="modal-title-stack">
         <div class="modal-title">${label}</div>
         <div class="modal-subtitle" id="rm-bounds">Min : ${fmtAmount(minRaise)}${stackCap ? ' · Max : ' + fmtAmount(stackCap) : ''}</div>
       </div>
     </div>
     <div class="gauge-presets">
-      <button class="gauge-preset-btn" data-chips="${Math.round(2.5*state.bb)}">2.5BB</button>
-      <button class="gauge-preset-btn" data-chips="${Math.round(5*state.bb)}">5BB</button>
-      <button class="gauge-preset-btn" data-chips="${Math.round(10*state.bb)}">10BB</button>
+      ${(state.betRound?.lastRaiserIdx != null)
+        ? (() => {
+            const x1 = Math.round(state.currentBet);
+            const x2 = Math.round(state.currentBet * 2);
+            const x3 = Math.round(state.currentBet * 3);
+            return `<button class="gauge-preset-btn" data-chips="${x1}"${x1 >= minRaise ? '' : ' disabled'}>1X</button>
+                    <button class="gauge-preset-btn" data-chips="${x2}"${x2 >= minRaise ? '' : ' disabled'}>2X</button>
+                    <button class="gauge-preset-btn" data-chips="${x3}"${x3 >= minRaise ? '' : ' disabled'}>3X</button>`;
+          })()
+        : (minRaise > state.pot)
+          ? `<button class="gauge-preset-btn" data-chips="${Math.round(2.5*state.bb)}">2.5BB</button>
+             <button class="gauge-preset-btn" data-chips="${Math.round(5*state.bb)}">5BB</button>
+             <button class="gauge-preset-btn" data-chips="${Math.round(10*state.bb)}">10BB</button>`
+          : (() => {
+              const q = Math.round(state.pot * 0.25);
+              const t = Math.round(state.pot / 3);
+              const h = Math.round(state.pot * 0.5);
+              const p = Math.round(state.pot);
+              return `<button class="gauge-preset-btn" data-chips="${q}"${q >= minRaise ? '' : ' disabled'}>¼ Pot</button>
+                      <button class="gauge-preset-btn" data-chips="${t}"${t >= minRaise ? '' : ' disabled'}>⅓ Pot</button>
+                      <button class="gauge-preset-btn" data-chips="${h}"${h >= minRaise ? '' : ' disabled'}>½ Pot</button>
+                      <button class="gauge-preset-btn" data-chips="${p}"${p >= minRaise ? '' : ' disabled'}>Pot</button>`;
+            })()}
       <button class="gauge-preset-btn gauge-preset-allin" data-chips="${gaugeMax}">ALL-IN</button>
     </div>
     <div class="raise-gauge-wrap">
